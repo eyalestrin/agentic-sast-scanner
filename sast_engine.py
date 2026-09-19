@@ -85,7 +85,7 @@ STATIC_HEURISTIC_RULES = [
         "remediation": "Canonicalize file paths using Path.toRealPath() before enforcing access boundaries.",
         "references": [
             "https://cwe.mitre.org/data/definitions/22.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/File_Path_Traversal_Cheat_Sheet.html"
+            "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html"
         ]
     },
     # Medium / Low Severity Rules
