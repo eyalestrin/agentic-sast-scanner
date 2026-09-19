@@ -40,7 +40,7 @@ Run the appropriate command in your terminal depending on your OS.
 2. VS Code Extensions  
    Install the YAML extension and your choice of AI Agent extension in VS Code:  
       ```Bash  
-       code --install-extension redhat.vscode-yaml  
+      code --install-extension redhat.vscode-yaml  
       ```  
 
 ---
@@ -48,14 +48,14 @@ Run the appropriate command in your terminal depending on your OS.
 ## Step 2: Installation & Setup Options
 Clone Directly into `.vscode/skills`
 If the `.vscode/skills` folder does not exist in your current target project, you can create it manually and clone this skill directly into it.
-   * Windows 11 (PowerShell or Windows Terminal):  
-     Navigate to your target project's root folder and run:  
-	 ```PowerShell  
-     mkdir -p .vscode/skills  
- 	   git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
-     ```  
-    * Linux / macOS:  
-	  Navigate to your target project's root folder and run:  
+   * Windows 11 (PowerShell or Windows Terminal):
+     Navigate to your target project's root folder and run:
+	   ```PowerShell
+     mkdir -p .vscode/skills
+ 	   git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills
+     ```
+   * Linux / macOS:  
+	   Navigate to your target project's root folder and run:  
      ```Bash  
      mkdir -p .vscode/skills  
      git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
@@ -72,10 +72,10 @@ If the `.vscode/skills` folder does not exist in your current target project, yo
      ```PowerShell  
      python .vscode/skills/sast_engine.py --format html  
      ```  
-    * Linux / macOS:  
-      ```Bash  
-       python3 .vscode/skills/sast_engine.py --format sarif  
-      ```  
+   * Linux / macOS:  
+     ```Bash  
+      python3 .vscode/skills/sast_engine.py --format sarif  
+     ```
 4. The engine will run, process all code files in subfolders in 400-line blocks, update `sast_checkpoint.json`, produce your requested format file (`sast_report.html` or `sast_report.sarif`), and generate `sast_security_report.pdf`.  
 
 ---
