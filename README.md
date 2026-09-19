@@ -26,22 +26,25 @@ Run the appropriate command in your terminal depending on your OS.
 1. Terminal Dependencies (Python & PDF Engine)  
    * Windows 11 (PowerShell or Windows Terminal):  
      ```PowerShell  
-     python -m pip install markdown reportlab jinja2
+     python -m pip install reportlab markdown jinja2
      ```  
-    * Linux (Ubuntu / Debian):  
-      ```Bash  
-      sudo apt update && sudo apt install -y python3 python3-pip
-      pip3 install markdown reportlab jinja2
-      ```  
-    * macOS:  
-      ```Bash  
-      python3 -m pip install markdown reportlab jinja2
-      ```  
+   * Linux (RHEL/Fedora):
+     ```Bash
+     sudo dnf install -y python3-reportlab python3-markdown python3-jinja2
+     ```
+   * Linux (Ubuntu 24.04+ / Debian 12+):  
+     ```Bash  
+     sudo apt update && sudo apt install -y python3-reportlab python3-markdown python3-jinja2
+     ```  
+   * macOS:  
+     ```Bash  
+     python3 -m pip install reportlab markdown jinja2
+     ```  
 2. VS Code Extensions  
    Install the YAML extension and your choice of AI Agent extension in VS Code:  
-      ```Bash  
-      code --install-extension redhat.vscode-yaml
-      ```  
+   ```Bash  
+   code --install-extension redhat.vscode-yaml
+   ```  
 
 ---
 
