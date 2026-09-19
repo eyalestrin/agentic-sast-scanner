@@ -3,7 +3,8 @@
 Agentic SAST Engine
 -------------------
 Handles directory traversal, 400-line chunking, state checkpointing,
-built-in heuristic fallback scanning, and multi-format (HTML, SARIF, JSON, Markdown, PDF) report generation.
+built-in heuristic fallback scanning, schema validation, and multi-format 
+(HTML, SARIF, JSON, Markdown, PDF) report generation.
 """
 
 import os
@@ -88,19 +89,32 @@ def analyze_line_heuristics(line, line_num, file_path):
     return findings
 
 def load_or_scan_checkpoint(target_dir):
-    """Loads existing findings from sast_checkpoint.json or runs heuristic fallback scan."""
+    """Loads valid vulnerability findings from sast_checkpoint.json or runs fallback scan."""
     if os.path.exists(CHECKPOINT_FILE):
         try:
             with open(CHECKPOINT_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+                
+                raw_findings = []
                 if isinstance(data, list):
-                    return data
-                if isinstance(data, dict) and "findings" in data and len(data["findings"]) > 0:
-                    return data["findings"]
+                    raw_findings = data
+                elif isinstance(data, dict) and "findings" in data:
+                    raw_findings = data["findings"]
+                
+                # Filter to ensure items are actual security findings, not raw file chunk metadata
+                valid_findings = [
+                    item for item in raw_findings 
+                    if isinstance(item, dict) and ("title" in item or "cwe_id" in item or "vulnerable_code" in item)
+                ]
+
+                if valid_findings:
+                    return valid_findings
+                else:
+                    print("[-] Found checkpoint file, but it contains raw chunk metadata instead of vulnerability findings. Running fallback scan...")
         except Exception as e:
             print(f"[-] Warning: Failed to parse existing {CHECKPOINT_FILE}: {e}")
 
-    print("[+] No pre-existing findings found in checkpoint. Executing fallback heuristic scan...")
+    print("[+] Executing static heuristic analysis across source files...")
     findings = []
     chunks_count = 0
 
@@ -121,7 +135,7 @@ def load_or_scan_checkpoint(target_dir):
                 except Exception as e:
                     print(f"[-] Error processing {rel_path}: {e}")
 
-    # Persist baseline checkpoint
+    # Persist verified findings checkpoint
     with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
         json.dump({"chunks": chunks_count, "findings": findings}, f, indent=2)
 
