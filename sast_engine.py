@@ -74,7 +74,32 @@ STATIC_HEURISTIC_RULES = [
         "cwe_id": "CWE-22",
         "owasp_category": "A01:2021-Broken Access Control",
         "severity": "HIGH",
-        "pattern": r"(FileReader|FileInputStream|open\().*path",         "remediation": "Canonicalize file paths using Path.toRealPath() before enforcing access boundaries.",         "references": [             "https://cwe.mitre.org/data/definitions/22.html",             "https://cheatsheetseries.owasp.org/cheatsheets/File_Path_Traversal_Cheat_Sheet.html"         ]     },     # Medium / Low Severity Rules     {         "title": "Sensitive Information Logging / Verbose Output",         "cwe_id": "CWE-532",         "owasp_category": "A09:2021-Security Logging and Monitoring Failures",         "severity": "MEDIUM",         "pattern": r"(log\.info\vert{}log\.debug\vert{}System\.out\.println)\(.*(password\vert{}secret\vert{}key\vert{}path\vert{}domainName\vert{}url)",         "remediation": "Sanitize and mask sensitive variables before writing them to application log output.",         "references": [             "https://cwe.mitre.org/data/definitions/532.html",             "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"         ]     },     {         "title": "Disabled CSRF Protection",         "cwe_id": "CWE-352",         "owasp_category": "A01:2021-Broken Access Control",         "severity": "MEDIUM",         "pattern": r"\.csrf\(\)\.disable\(\)",
+        "pattern": r"(FileReader|FileInputStream|open\().*path",
+        "remediation": "Canonicalize file paths using Path.toRealPath() before enforcing access boundaries.",
+        "references": [
+            "https://cwe.mitre.org/data/definitions/22.html",
+            "https://cheatsheetseries.owasp.org/cheatsheets/File_Path_Traversal_Cheat_Sheet.html"
+        ]
+    },
+    # Medium / Low Severity Rules
+    {
+        "title": "Sensitive Information Logging / Verbose Output",
+        "cwe_id": "CWE-532",
+        "owasp_category": "A09:2021-Security Logging and Monitoring Failures",
+        "severity": "MEDIUM",
+        "pattern": r"(log\.info|log\.debug|System\.out\.println)\(.*(password|secret|key|path|domainName|url)",
+        "remediation": "Sanitize and mask sensitive variables before writing them to application log output.",
+        "references": [
+            "https://cwe.mitre.org/data/definitions/532.html",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"
+        ]
+    },
+    {
+        "title": "Disabled CSRF Protection",
+        "cwe_id": "CWE-352",
+        "owasp_category": "A01:2021-Broken Access Control",
+        "severity": "MEDIUM",
+        "pattern": r"\.csrf\(\)\.disable\(\)",
         "remediation": "Re-enable CSRF protection for state-changing HTTP endpoints.",
         "references": [
             "https://cwe.mitre.org/data/definitions/352.html",
