@@ -52,18 +52,16 @@ If the `.vscode/skills` folder does not exist in your current target project, yo
      Navigate to your target project's root folder and run:  
 	 ```PowerShell  
      mkdir -p .vscode/skills  
-	 git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
+ 	   git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
      ```  
     * Linux / macOS:  
 	  Navigate to your target project's root folder and run:  
-      ```Bash  
-      mkdir -p .vscode/skills  
-      git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
-	  ```  
-
+     ```Bash  
+     mkdir -p .vscode/skills  
+     git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
+	   ```  
 
 ---
-
 
 ## Step 3: How to Run the Skill in VS Code
 
