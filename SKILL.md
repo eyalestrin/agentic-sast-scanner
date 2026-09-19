@@ -24,5 +24,7 @@ For each 400-line block, scan for security weaknesses mapped to official standar
 
 ## STAGE 4: OUTPUT ORCHESTRATION
 - Prompt the user for their primary desired report format choice (`Markdown`, `SARIF`, `JSON`, or `HTML`).
-- Execute `python .vscode/skills/sast_engine.py` to compile the findings.
+- Execute the engine using its absolute path fallback:
+  `python3 ~/.vscode/skills/sast_engine.py --format <requested_format>`
+  (or `python3 .vscode/skills/sast_engine.py` if cloned locally into the workspace).
 - **Mandatory Policy:** The engine MUST generate the requested format AND automatically compile a `sast_security_report.pdf` report in all instances.
