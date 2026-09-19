@@ -3,7 +3,8 @@
 Agentic SAST Engine
 -------------------
 Handles directory traversal, 400-line chunking, state checkpointing,
-built-in heuristic fallback scanning, schema validation, and multi-format 
+built-in heuristic fallback scanning across High/Medium/Low severities,
+schema validation, OWASP Cheat Sheet mapping, and multi-format 
 (HTML, SARIF, JSON, Markdown, PDF) report generation.
 """
 
@@ -31,6 +32,7 @@ CHECKPOINT_FILE = "sast_checkpoint.json"
 
 # Static heuristic fallback rules for command-line runs
 STATIC_HEURISTIC_RULES = [
+    # Critical / High Severity Rules
     {
         "title": "OS Command Injection via Runtime / Shell Execution",
         "cwe_id": "CWE-78",
@@ -38,7 +40,10 @@ STATIC_HEURISTIC_RULES = [
         "severity": "CRITICAL",
         "pattern": r"(Runtime\.getRuntime\(\)\.exec|ProcessBuilder|os\.system|subprocess\.Popen|exec\s*\(.*sh)",
         "remediation": "Avoid invoking system shells directly. Parameterize arguments using structured array APIs.",
-        "references": ["https://cwe.mitre.org/data/definitions/78.html"]
+        "references": [
+            "https://cwe.mitre.org/data/definitions/78.html",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Command_Injection_Defense_Cheat_Sheet.html"
+        ]
     },
     {
         "title": "Potential SQL Injection via String Concatenation",
@@ -47,7 +52,10 @@ STATIC_HEURISTIC_RULES = [
         "severity": "HIGH",
         "pattern": r"(SELECT|INSERT|UPDATE|DELETE).*\+.*",
         "remediation": "Use parameterized prepared statements instead of dynamic SQL string concatenation.",
-        "references": ["https://cwe.mitre.org/data/definitions/89.html"]
+        "references": [
+            "https://cwe.mitre.org/data/definitions/89.html",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Query_Parameterization_Cheat_Sheet.html"
+        ]
     },
     {
         "title": "Potential Server-Side Request Forgery (SSRF)",
@@ -56,16 +64,34 @@ STATIC_HEURISTIC_RULES = [
         "severity": "HIGH",
         "pattern": r"(\.exchange\(|\.getForObject\(|requests\.get\(|fetch\().*request\.",
         "remediation": "Validate target URLs against an explicit allowlist and block access to private/internal network ranges.",
-        "references": ["https://cwe.mitre.org/data/definitions/918.html"]
+        "references": [
+            "https://cwe.mitre.org/data/definitions/918.html",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"
+        ]
     },
     {
         "title": "Path Traversal / Unsanitized File Access",
         "cwe_id": "CWE-22",
         "owasp_category": "A01:2021-Broken Access Control",
         "severity": "HIGH",
-        "pattern": r"(FileReader|FileInputStream|open\().*path",
-        "remediation": "Canonicalize file paths using Path.toRealPath() before enforcing access boundaries.",
-        "references": ["https://cwe.mitre.org/data/definitions/22.html"]
+        "pattern": r"(FileReader|FileInputStream|open\().*path",         "remediation": "Canonicalize file paths using Path.toRealPath() before enforcing access boundaries.",         "references": [             "https://cwe.mitre.org/data/definitions/22.html",             "https://cheatsheetseries.owasp.org/cheatsheets/File_Path_Traversal_Cheat_Sheet.html"         ]     },     # Medium / Low Severity Rules     {         "title": "Sensitive Information Logging / Verbose Output",         "cwe_id": "CWE-532",         "owasp_category": "A09:2021-Security Logging and Monitoring Failures",         "severity": "MEDIUM",         "pattern": r"(log\.info\vert{}log\.debug\vert{}System\.out\.println)\(.*(password\vert{}secret\vert{}key\vert{}path\vert{}domainName\vert{}url)",         "remediation": "Sanitize and mask sensitive variables before writing them to application log output.",         "references": [             "https://cwe.mitre.org/data/definitions/532.html",             "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"         ]     },     {         "title": "Disabled CSRF Protection",         "cwe_id": "CWE-352",         "owasp_category": "A01:2021-Broken Access Control",         "severity": "MEDIUM",         "pattern": r"\.csrf\(\)\.disable\(\)",
+        "remediation": "Re-enable CSRF protection for state-changing HTTP endpoints.",
+        "references": [
+            "https://cwe.mitre.org/data/definitions/352.html",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+        ]
+    },
+    {
+        "title": "Generic Exception Catching / Potential Stack Trace Exposure",
+        "cwe_id": "CWE-396",
+        "owasp_category": "A05:2021-Security Misconfiguration",
+        "severity": "LOW",
+        "pattern": r"catch\s*\(\s*Exception\s+e\s*\)",
+        "remediation": "Catch specific exception types rather than generic Exception to avoid swallowing critical errors or exposing stack traces.",
+        "references": [
+            "https://cwe.mitre.org/data/definitions/396.html",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"
+        ]
     }
 ]
 
@@ -164,7 +190,12 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
     else:
         for index, item in enumerate(findings, start=1):
             sev = item.get('severity', 'MEDIUM').upper()
-            sev_color = "#dc2626" if sev in ['HIGH', 'CRITICAL'] else "#d97706"
+            if sev in ['CRITICAL', 'HIGH']:
+                sev_color = "#dc2626"
+            elif sev == 'MEDIUM':
+                sev_color = "#d97706"
+            else:
+                sev_color = "#2563eb"
 
             header_text = f"<b>{index}. {item.get('title', 'Security Finding')}</b> - <font color='{sev_color}'><b>{sev}</b></font>"
             story.append(Paragraph(header_text, styles['Heading2']))
@@ -204,14 +235,26 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
     rows = ""
     for item in findings:
         sev = item.get('severity', 'MEDIUM').upper()
-        badge_class = "critical" if sev == "CRITICAL" else ("high" if sev == "HIGH" else "medium")
+        if sev == "CRITICAL":
+            badge_class = "critical"
+        elif sev == "HIGH":
+            badge_class = "high"
+        elif sev == "MEDIUM":
+            badge_class = "medium"
+        else:
+            badge_class = "low"
+
+        refs_html = ""
+        if item.get('references'):
+            refs_html = "<br/><small>" + "<br/>".join([f"<a href='{r}' target='_blank'>{r}</a>" for r in item.get('references')]) + "</small>"
+
         rows += f"""
         <tr>
             <td><span class="badge {badge_class}">{sev}</span></td>
             <td><b>{item.get('title')}</b><br/><small>{item.get('cwe_id')} | {item.get('owasp_category')}</small></td>
             <td><code>{item.get('file_path')}:{item.get('start_line')}</code></td>
             <td><pre><code>{item.get('vulnerable_code')}</code></pre></td>
-            <td>{item.get('remediation')}</td>
+            <td>{item.get('remediation')}{refs_html}</td>
         </tr>
         """
 
@@ -230,6 +273,7 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
         .critical {{ background: #dc2626; }}
         .high {{ background: #ea580c; }}
         .medium {{ background: #d97706; }}
+        .low {{ background: #2563eb; }}
     </style>
 </head>
 <body>
@@ -242,7 +286,7 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
                 <th>Vulnerability & Taxonomy</th>
                 <th>Location</th>
                 <th>Code Snippet</th>
-                <th>Remediation</th>
+                <th>Remediation & OWASP References</th>
             </tr>
         </thead>
         <tbody>
