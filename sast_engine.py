@@ -49,7 +49,7 @@ STATIC_HEURISTIC_RULES = [
         "remediation": "Avoid invoking system shells directly. Parameterize arguments using structured array APIs.",
         "references": [
             "https://cwe.mitre.org/data/definitions/78.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Command_Injection_Defense_Cheat_Sheet.html"
+            "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html"
         ]
     },
     {
