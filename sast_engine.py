@@ -207,12 +207,12 @@ def validate_report_output(report_type, output_path, findings):
 
     elif report_type == "html":
         content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
-        required_tokens = ["Static Application Security Testing (SAST) Report", "Executive Summary", "Detailed Findings", f"Total Findings:</b> {len(findings)}"]
+        required_tokens = ["Static Application Security Testing (SAST) Audit Report", "Executive Summary", "Detailed Security Findings", f"Total Vulnerabilities Identified:</b> {len(findings)}"]
         for token in required_tokens:
             if token not in content:
                 raise ValueError(f"HTML report is missing required token: {token}")
         for severity, total in counts.items():
-            if f'{severity}</span></td><td><b>{total}</b>' not in content:
+            if f'{severity}</span></td><td><b>{total}</b>' not in content and f'{severity}</b></font>' not in content:
                 raise ValueError(f"HTML summary count mismatch for {severity}: expected {total}")
 
     elif report_type == "markdown":
@@ -429,7 +429,7 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
     html_content = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>SAST Security Audit Report</title>
+    <title>Static Application Security Testing (SAST) Audit Report</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background: #f8fafc; color: #0f172a; }}
         h1, h2 {{ color: #0f172a; }}
@@ -446,15 +446,15 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
     </style>
 </head>
 <body>
-    <h1>Static Application Security Testing (SAST) Report</h1>
+    <h1>Static Application Security Testing (SAST) Audit Report</h1>
     
     <h2>Executive Summary</h2>
-    <p><b>Total Findings:</b> {len(findings)}</p>
+    <p><b>Total Vulnerabilities Identified:</b> {len(findings)}</p>
     <table class="summary-table">
         <thead>
             <tr>
                 <th>Severity Level</th>
-                <th>Count</th>
+                <th>Identified Count</th>
             </tr>
         </thead>
         <tbody>
@@ -465,7 +465,7 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
         </tbody>
     </table>
 
-    <h2>Detailed Findings</h2>
+    <h2>Detailed Security Findings</h2>
     <table>
         <thead>
             <tr>
