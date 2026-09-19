@@ -26,21 +26,21 @@ Run the appropriate command in your terminal depending on your OS.
 1. Terminal Dependencies (Python & PDF Engine)  
    * Windows 11 (PowerShell or Windows Terminal):  
      ```PowerShell  
-     python -m pip install markdown reportlab jinja2  
+     python -m pip install markdown reportlab jinja2
      ```  
     * Linux (Ubuntu / Debian):  
       ```Bash  
-      sudo apt update && sudo apt install -y python3 python3-pip  
-      pip3 install markdown reportlab jinja2  
+      sudo apt update && sudo apt install -y python3 python3-pip
+      pip3 install markdown reportlab jinja2
       ```  
     * macOS:  
       ```Bash  
-      python3 -m pip install markdown reportlab jinja2  
+      python3 -m pip install markdown reportlab jinja2
       ```  
 2. VS Code Extensions  
    Install the YAML extension and your choice of AI Agent extension in VS Code:  
       ```Bash  
-      code --install-extension redhat.vscode-yaml  
+      code --install-extension redhat.vscode-yaml
       ```  
 
 ---
@@ -52,13 +52,13 @@ If the `.vscode/skills` folder does not exist in your current target project, yo
      Navigate to your target project's root folder and run:
 	   ```PowerShell
      mkdir -p .vscode/skills
- 	   git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills
+ 	   git clone https://github.com/eyalestrin/agentic-sast-scanner.git .vscode/skills
      ```
    * Linux / macOS:  
 	   Navigate to your target project's root folder and run:  
      ```Bash  
-     mkdir -p .vscode/skills  
-     git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
+     mkdir -p .vscode/skills
+     git clone https://github.com/eyalestrin/agentic-sast-scanner.git .vscode/skills
 	   ```  
 
 ---
@@ -70,11 +70,11 @@ If the `.vscode/skills` folder does not exist in your current target project, yo
 3. Execute the SAST engine specifying your primary output format choice (e.g., `sarif`, `markdown`, `json`, or `html`):  
    * Windows 11 (PowerShell or Windows Terminal):  
      ```PowerShell  
-     python .vscode/skills/sast_engine.py --format html  
+     python .vscode/skills/sast_engine.py --format html
      ```  
    * Linux / macOS:  
      ```Bash  
-      python3 .vscode/skills/sast_engine.py --format sarif  
+      python3 .vscode/skills/sast_engine.py --format sarif
      ```
 4. The engine will run, process all code files in subfolders in 400-line blocks, update `sast_checkpoint.json`, produce your requested format file (`sast_report.html` or `sast_report.sarif`), and generate `sast_security_report.pdf`.  
 
