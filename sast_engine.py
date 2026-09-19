@@ -142,6 +142,98 @@ def get_severity_counts(findings):
             counts["MEDIUM"] += 1
     return counts
 
+
+def validate_findings(findings):
+    """Validates the structure and required fields of the generated findings list."""
+    if not isinstance(findings, list):
+        raise ValueError("Findings must be stored in a list.")
+
+    required_fields = {
+        "title",
+        "cwe_id",
+        "owasp_category",
+        "severity",
+        "file_path",
+        "start_line",
+        "end_line",
+        "vulnerable_code",
+        "remediation",
+        "references",
+    }
+
+    for index, item in enumerate(findings):
+        if not isinstance(item, dict):
+            raise ValueError(f"Finding #{index} is not a dictionary: {type(item).__name__}")
+
+        missing = sorted(required_fields - set(item.keys()))
+        if missing:
+            raise ValueError(f"Finding #{index} is missing required keys: {', '.join(missing)}")
+
+        if not isinstance(item.get("references", []), list):
+            raise ValueError(f"Finding #{index} references must be a list.")
+
+    return True
+
+
+def validate_report_output(report_type, output_path, findings):
+    """Ensures a generated report file exists, is non-empty, and matches the expected findings summary."""
+    validate_findings(findings)
+
+    if not os.path.exists(output_path):
+        raise ValueError(f"{report_type.upper()} report was not created on disk: {output_path}")
+
+    file_size = os.path.getsize(output_path)
+    if file_size <= 0:
+        raise ValueError(f"{report_type.upper()} report is empty: {output_path}")
+
+    counts = get_severity_counts(findings)
+
+    if report_type == "json":
+        with open(output_path, 'r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        if not isinstance(data, list):
+            raise ValueError("JSON report must contain a list of findings.")
+        if len(data) != len(findings):
+            raise ValueError(f"JSON report mismatch: expected {len(findings)} findings, found {len(data)}")
+
+    elif report_type == "sarif":
+        with open(output_path, 'r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        if "runs" not in data or not data["runs"]:
+            raise ValueError("SARIF report is missing the runs section.")
+        result_count = len(data["runs"][0].get("results", []))
+        if result_count != len(findings):
+            raise ValueError(f"SARIF report mismatch: expected {len(findings)} results, found {result_count}")
+
+    elif report_type == "html":
+        content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
+        required_tokens = ["Static Application Security Testing (SAST) Report", "Executive Summary", "Detailed Findings", f"Total Findings:</b> {len(findings)}"]
+        for token in required_tokens:
+            if token not in content:
+                raise ValueError(f"HTML report is missing required token: {token}")
+        for severity, total in counts.items():
+            if f'{severity}</span></td><td><b>{total}</b>' not in content:
+                raise ValueError(f"HTML summary count mismatch for {severity}: expected {total}")
+
+    elif report_type == "markdown":
+        content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
+        if "# SAST Audit Summary" not in content:
+            raise ValueError("Markdown report is missing the summary header.")
+        if f"Total Findings: **{len(findings)}**" not in content:
+            raise ValueError(f"Markdown report mismatch: expected {len(findings)} findings")
+
+    elif report_type == "pdf":
+        with open(output_path, 'rb') as handle:
+            header = handle.read(5)
+        if header != b'%PDF-':
+            raise ValueError(f"PDF report is invalid or incomplete: {output_path}")
+
+    else:
+        raise ValueError(f"Unsupported report validation type: {report_type}")
+
+    return True
+
+
 def analyze_line_heuristics(line, line_num, file_path):
     """Evaluates a single line of code against built-in static patterns."""
     findings = []
@@ -301,7 +393,9 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
             story.append(Spacer(1, 14))
 
     doc.build(story)
+    validate_report_output("pdf", output_pdf_path, findings)
     print(f"[+] Mandatory PDF report generated: {output_pdf_path}")
+    return output_pdf_path
 
 def generate_html_report(findings, output_html_path="sast_report.html"):
     """Generates HTML report with Executive Summary table."""
@@ -391,7 +485,9 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
 
     with open(output_html_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
+    validate_report_output("html", output_html_path, findings)
     print(f"[+] HTML report generated: {output_html_path}")
+    return output_html_path
 
 def generate_sarif_report(findings, output_sarif_path="sast_report.sarif"):
     """Generates SARIF format report for IDE and CI/CD ingestion."""
@@ -435,7 +531,9 @@ def generate_sarif_report(findings, output_sarif_path="sast_report.sarif"):
 
     with open(output_sarif_path, 'w', encoding='utf-8') as f:
         json.dump(sarif_data, f, indent=2)
+    validate_report_output("sarif", output_sarif_path, findings)
     print(f"[+] SARIF report generated: {output_sarif_path}")
+    return output_sarif_path
 
 def main():
     parser = argparse.ArgumentParser(description="Cross-Platform Agentic SAST Engine")
@@ -456,6 +554,7 @@ def main():
     elif args.format == "json":
         with open("sast_report.json", 'w', encoding='utf-8') as f:
             json.dump(findings, f, indent=2)
+        validate_report_output("json", "sast_report.json", findings)
         print("[+] Primary JSON report generated: sast_report.json")
     else:
         out_name = f"sast_report.{'md' if args.format == 'markdown' else args.format}"
@@ -470,6 +569,7 @@ def main():
                 f.write(f"### {item.get('title')} ({item.get('severity')})\n")
                 f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}`\n")
                 f.write(f"- CWE: {item.get('cwe_id')}\n\n")
+        validate_report_output("markdown", out_name, findings)
         print(f"[+] Primary report generated: {out_name}")
 
     generate_pdf_report(findings, "sast_security_report.pdf")
