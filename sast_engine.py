@@ -13,6 +13,7 @@ import sys
 import json
 import re
 import argparse
+from html import escape
 from pathlib import Path
 
 # PDF Generation Dependencies
@@ -211,6 +212,9 @@ def validate_report_output(report_type, output_path, findings):
         for token in required_tokens:
             if token not in content:
                 raise ValueError(f"HTML report is missing required token: {token}")
+        rendered_rows = content.count('<tr class="finding-row">')
+        if rendered_rows != len(findings):
+            raise ValueError(f"HTML report mismatch: expected {len(findings)} finding rows, found {rendered_rows}")
         for severity, total in counts.items():
             if f'{severity}</span></td><td><b>{total}</b>' not in content and f'{severity}</b></font>' not in content:
                 raise ValueError(f"HTML summary count mismatch for {severity}: expected {total}")
@@ -402,7 +406,7 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
     counts = get_severity_counts(findings)
     rows = ""
     for item in findings:
-        sev = item.get('severity', 'MEDIUM').upper()
+        sev = escape(str(item.get('severity', 'MEDIUM')).upper())
         if sev == "CRITICAL":
             badge_class = "critical"
         elif sev == "HIGH":
@@ -414,15 +418,17 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
 
         refs_html = ""
         if item.get('references'):
-            refs_html = "<br/><small>" + "<br/>".join([f"<a href='{r}' target='_blank'>{r}</a>" for r in item.get('references')]) + "</small>"
+            refs_html = "<br/><small>" + "<br/>".join(
+                [f"<a href='{escape(str(r), quote=True)}' target='_blank'>{escape(str(r))}</a>" for r in item.get('references')]
+            ) + "</small>"
 
         rows += f"""
-        <tr>
+        <tr class="finding-row">
             <td><span class="badge {badge_class}">{sev}</span></td>
-            <td><b>{item.get('title')}</b><br/><small>{item.get('cwe_id')} | {item.get('owasp_category')}</small></td>
-            <td><code>{item.get('file_path')}:{item.get('start_line')}</code></td>
-            <td><pre><code>{item.get('vulnerable_code')}</code></pre></td>
-            <td>{item.get('remediation')}{refs_html}</td>
+            <td><b>{escape(str(item.get('title', '')))}</b><br/><small>{escape(str(item.get('cwe_id', '')))} | {escape(str(item.get('owasp_category', '')))}</small></td>
+            <td><code>{escape(str(item.get('file_path', '')))}:{escape(str(item.get('start_line', '')))}</code></td>
+            <td><pre><code>{escape(str(item.get('vulnerable_code', '')))}</code></pre></td>
+            <td>{escape(str(item.get('remediation', '')))}{refs_html}</td>
         </tr>
         """
 
