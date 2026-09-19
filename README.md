@@ -77,7 +77,7 @@ If the `.vscode/skills` folder does not exist in your current target project, yo
      ```  
    * Linux / macOS:  
      ```Bash  
-      python3 .vscode/skills/sast_engine.py --format sarif
+      python3 ~/.vscode/skills/sast_engine.py --format sarif
      ```
 4. The engine will run, process all code files in subfolders in 400-line blocks, update `sast_checkpoint.json`, produce your requested format file (`sast_report.html` or `sast_report.sarif`), and generate `sast_security_report.pdf`.  
 
