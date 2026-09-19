@@ -30,12 +30,12 @@ Run the appropriate command in your terminal depending on your OS.
      ```  
     * Linux (Ubuntu / Debian):  
       ```Bash  
-       sudo apt update && sudo apt install -y python3 python3-pip  
-       pip3 install markdown reportlab jinja2  
+      sudo apt update && sudo apt install -y python3 python3-pip  
+      pip3 install markdown reportlab jinja2  
       ```  
     * macOS:  
       ```Bash  
-       python3 -m pip install markdown reportlab jinja2  
+      python3 -m pip install markdown reportlab jinja2  
       ```  
 2. VS Code Extensions  
    Install the YAML extension and your choice of AI Agent extension in VS Code:  
@@ -45,7 +45,27 @@ Run the appropriate command in your terminal depending on your OS.
 
 ---
 
-## Step 2: How to Run the Skill in VS Code
+## Step 2: Installation & Setup Options
+Clone Directly into `.vscode/skills`
+If the `.vscode/skills` folder does not exist in your current target project, you can create it manually and clone this skill directly into it.
+   * Windows 11 (PowerShell or Windows Terminal):  
+     Navigate to your target project's root folder and run:  
+	 ```PowerShell  
+     mkdir -p .vscode/skills  
+	 git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
+     ```  
+    * Linux / macOS:  
+	  Navigate to your target project's root folder and run:  
+      ```Bash  
+      mkdir -p .vscode/skills  
+      git clone [https://github.com/eyalestrin/agentic-sast-scanner.git](https://github.com/eyalestrin/agentic-sast-scanner.git) .vscode/skills  
+	  ```  
+
+
+---
+
+
+## Step 3: How to Run the Skill in VS Code
 
 1. Open your project folder in **VS Code** (or any VS Code fork).  
 2. Open the built-in terminal (`Ctrl + ~` on Windows/Linux, `Cmd + ~` on macOS).  
@@ -62,7 +82,7 @@ Run the appropriate command in your terminal depending on your OS.
 
 ---
 
-## 3. Generated Artifacts
+## Generated Artifacts
 
 Once execution completes, the following files will be created in your project root directory:
 
@@ -74,7 +94,7 @@ Once execution completes, the following files will be created in your project ro
 
 ---
 
-## 4. Troubleshooting & Tips
+## Troubleshooting & Tips
 
 * **Resetting Scan State:** To force a fresh re-scan of the entire directory, delete the `sast_checkpoint.json` file in your root folder.
 * **Excluding Extra Folders:** Modify `EXCLUDED_DIRS` inside `sast_engine.py` if you wish to skip specific build or asset directories.
