@@ -144,6 +144,25 @@ def get_severity_counts(findings):
     return counts
 
 
+RECOMMENDED_FIXES = {
+    "CWE-78": "Replace shell execution with an argument array and disable shell interpretation, for example: subprocess.run([command, argument], shell=False, check=True).",
+    "CWE-89": "Replace string-built SQL with a prepared statement, for example: connection.prepareStatement(\"SELECT ... WHERE id = ?\").setString(1, userValue).",
+    "CWE-918": "Replace unrestricted requests with an allowlisted destination and reject private or link-local IP ranges before making the request.",
+    "CWE-22": "Replace direct user-controlled file access with canonicalization and boundary checks, for example: safePath = Path.of(baseDir, userPath).toRealPath(); require safePath.startsWith(baseDir.toRealPath()).",
+    "CWE-532": "Replace sensitive logging with masked values, for example: logger.info(\"Request for key={}\", mask(secretKey)).",
+    "CWE-352": "Replace the disabled CSRF configuration with enabled protection, for example: http.csrf(csrf -> csrf.csrfTokenRepository(tokenRepository)).",
+    "CWE-396": "Replace the generic catch with the narrow exception types the operation can recover from, for example: catch (IOException e) { handleInputError(e); }.",
+}
+
+
+def get_recommended_fix(finding):
+    """Returns a concrete replacement direction for a finding's CWE."""
+    return RECOMMENDED_FIXES.get(
+        finding.get("cwe_id"),
+        "Replace the flagged operation with an implementation that validates untrusted input and enforces the documented security boundary."
+    )
+
+
 def validate_findings(findings):
     """Validates the structure and required fields of the generated findings list."""
     if not isinstance(findings, list):
@@ -422,13 +441,21 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
                 [f"<a href='{escape(str(r), quote=True)}' target='_blank'>{escape(str(r))}</a>" for r in item.get('references')]
             ) + "</small>"
 
+        current_code = escape(str(item.get('vulnerable_code', '')))
+        recommended_fix = escape(get_recommended_fix(item))
+
         rows += f"""
         <tr class="finding-row">
             <td><span class="badge {badge_class}">{sev}</span></td>
             <td><b>{escape(str(item.get('title', '')))}</b><br/><small>{escape(str(item.get('cwe_id', '')))} | {escape(str(item.get('owasp_category', '')))}</small></td>
             <td><code>{escape(str(item.get('file_path', '')))}:{escape(str(item.get('start_line', '')))}</code></td>
-            <td><pre><code>{escape(str(item.get('vulnerable_code', '')))}</code></pre></td>
-            <td>{escape(str(item.get('remediation', '')))}{refs_html}</td>
+            <td>
+                <b>Current Code (replace):</b>
+                <pre><code>{current_code}</code></pre>
+                <b>Recommended Replacement:</b>
+                <pre><code>{recommended_fix}</code></pre>
+            </td>
+            <td><b>Remediation:</b> {escape(str(item.get('remediation', '')))}{refs_html}</td>
         </tr>
         """
 
@@ -488,7 +515,7 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
                 <th>Severity</th>
                 <th>Vulnerability & Taxonomy</th>
                 <th>Location</th>
-                <th>Code Snippet</th>
+                <th>Current Code & Recommended Replacement</th>
                 <th>Remediation & OWASP References</th>
             </tr>
         </thead>
