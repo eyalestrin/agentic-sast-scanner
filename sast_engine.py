@@ -3,9 +3,9 @@
 Agentic SAST Engine
 -------------------
 Handles directory traversal, 400-line chunking, state checkpointing,
-built-in heuristic fallback scanning across High/Medium/Low severities,
-schema validation, OWASP Cheat Sheet mapping, and multi-format 
-(HTML, SARIF, JSON, Markdown, PDF) report generation.
+built-in heuristic fallback scanning across Critical/High/Medium/Low severities,
+schema validation, OWASP Cheat Sheet mapping, executive summary generation,
+severity-based sorting, and multi-format (HTML, SARIF, JSON, Markdown, PDF) report generation.
 """
 
 import os
@@ -30,7 +30,14 @@ SUPPORTED_EXTENSIONS = {
 EXCLUDED_DIRS = {'.git', 'node_modules', 'venv', '.venv', 'target', 'bin', 'obj', '__pycache__'}
 CHECKPOINT_FILE = "sast_checkpoint.json"
 
-# Static heuristic fallback rules for command-line runs
+SEVERITY_ORDER = {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 2,
+    "LOW": 3
+}
+
+# Static heuristic fallback rules with validated reference URLs
 STATIC_HEURISTIC_RULES = [
     # Critical / High Severity Rules
     {
@@ -120,6 +127,21 @@ STATIC_HEURISTIC_RULES = [
     }
 ]
 
+def sort_findings(findings):
+    """Sorts findings by severity rank: CRITICAL -> HIGH -> MEDIUM -> LOW."""
+    return sorted(findings, key=lambda x: SEVERITY_ORDER.get(x.get('severity', 'MEDIUM').upper(), 99))
+
+def get_severity_counts(findings):
+    """Generates a dictionary with counts per severity level."""
+    counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for item in findings:
+        sev = item.get('severity', 'MEDIUM').upper()
+        if sev in counts:
+            counts[sev] += 1
+        else:
+            counts["MEDIUM"] += 1
+    return counts
+
 def analyze_line_heuristics(line, line_num, file_path):
     """Evaluates a single line of code against built-in static patterns."""
     findings = []
@@ -152,14 +174,13 @@ def load_or_scan_checkpoint(target_dir):
                 elif isinstance(data, dict) and "findings" in data:
                     raw_findings = data["findings"]
                 
-                # Filter to ensure items are actual security findings, not raw file chunk metadata
                 valid_findings = [
                     item for item in raw_findings 
                     if isinstance(item, dict) and ("title" in item or "cwe_id" in item or "vulnerable_code" in item)
                 ]
 
                 if valid_findings:
-                    return valid_findings
+                    return sort_findings(valid_findings)
                 else:
                     print("[-] Found checkpoint file, but it contains raw chunk metadata instead of vulnerability findings. Running fallback scan...")
         except Exception as e:
@@ -186,14 +207,16 @@ def load_or_scan_checkpoint(target_dir):
                 except Exception as e:
                     print(f"[-] Error processing {rel_path}: {e}")
 
+    sorted_findings = sort_findings(findings)
+
     # Persist verified findings checkpoint
     with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
-        json.dump({"chunks": chunks_count, "findings": findings}, f, indent=2)
+        json.dump({"chunks": chunks_count, "findings": sorted_findings}, f, indent=2)
 
-    return findings
+    return sorted_findings
 
 def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
-    """Generates mandatory PDF security report using ReportLab."""
+    """Generates mandatory PDF security report with Executive Summary using ReportLab."""
     doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
     styles = getSampleStyleSheet()
     story = []
@@ -207,23 +230,48 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
     )
 
     story.append(Paragraph("Static Application Security Testing (SAST) Audit Report", title_style))
+    story.append(Paragraph("Executive Summary", styles['Heading2']))
     story.append(Paragraph(f"<b>Total Vulnerabilities Identified:</b> {len(findings)}", styles['Normal']))
+    story.append(Spacer(1, 8))
+
+    counts = get_severity_counts(findings)
+    summary_table_data = [
+        [Paragraph("<b>Severity Level</b>", styles['Normal']), Paragraph("<b>Identified Count</b>", styles['Normal'])],
+        [Paragraph("<font color='#dc2626'><b>Critical</b></font>", styles['Normal']), Paragraph(str(counts['CRITICAL']), styles['Normal'])],
+        [Paragraph("<font color='#ea580c'><b>High</b></font>", styles['Normal']), Paragraph(str(counts['HIGH']), styles['Normal'])],
+        [Paragraph("<font color='#d97706'><b>Medium</b></font>", styles['Normal']), Paragraph(str(counts['MEDIUM']), styles['Normal'])],
+        [Paragraph("<font color='#2563eb'><b>Low</b></font>", styles['Normal']), Paragraph(str(counts['LOW']), styles['Normal'])],
+    ]
+
+    summary_table = Table(summary_table_data, colWidths=[200, 300])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f1f5f9')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
+        ('PADDING', (0,0), (-1,-1), 5),
+    ]))
+    story.append(summary_table)
     story.append(Spacer(1, 16))
+
+    story.append(Paragraph("Detailed Security Findings", styles['Heading2']))
+    story.append(Spacer(1, 8))
 
     if not findings:
         story.append(Paragraph("No security vulnerabilities detected across project code chunks.", styles['Normal']))
     else:
         for index, item in enumerate(findings, start=1):
             sev = item.get('severity', 'MEDIUM').upper()
-            if sev in ['CRITICAL', 'HIGH']:
+            if sev == 'CRITICAL':
                 sev_color = "#dc2626"
+            elif sev == 'HIGH':
+                sev_color = "#ea580c"
             elif sev == 'MEDIUM':
                 sev_color = "#d97706"
             else:
                 sev_color = "#2563eb"
 
             header_text = f"<b>{index}. {item.get('title', 'Security Finding')}</b> - <font color='{sev_color}'><b>{sev}</b></font>"
-            story.append(Paragraph(header_text, styles['Heading2']))
+            story.append(Paragraph(header_text, styles['Heading3']))
 
             details = [
                 [Paragraph("<b>CWE / Taxonomy:</b>", styles['Normal']), Paragraph(f"{item.get('cwe_id', 'N/A')} ({item.get('owasp_category', 'N/A')})", styles['Normal'])],
@@ -256,7 +304,8 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
     print(f"[+] Mandatory PDF report generated: {output_pdf_path}")
 
 def generate_html_report(findings, output_html_path="sast_report.html"):
-    """Generates user-selected HTML report."""
+    """Generates HTML report with Executive Summary table."""
+    counts = get_severity_counts(findings)
     rows = ""
     for item in findings:
         sev = item.get('severity', 'MEDIUM').upper()
@@ -289,8 +338,8 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
     <title>SAST Security Audit Report</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background: #f8fafc; color: #0f172a; }}
-        h1 {{ color: #0f172a; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
+        h1, h2 {{ color: #0f172a; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 24px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
         th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: top; }}
         th {{ background: #f1f5f9; }}
         pre {{ background: #0f172a; color: #f8fafc; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 12px; }}
@@ -299,11 +348,30 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
         .high {{ background: #ea580c; }}
         .medium {{ background: #d97706; }}
         .low {{ background: #2563eb; }}
+        .summary-table {{ width: 50%; }}
     </style>
 </head>
 <body>
     <h1>Static Application Security Testing (SAST) Report</h1>
+    
+    <h2>Executive Summary</h2>
     <p><b>Total Findings:</b> {len(findings)}</p>
+    <table class="summary-table">
+        <thead>
+            <tr>
+                <th>Severity Level</th>
+                <th>Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><span class="badge critical">CRITICAL</span></td><td><b>{counts['CRITICAL']}</b></td></tr>
+            <tr><td><span class="badge high">HIGH</span></td><td><b>{counts['HIGH']}</b></td></tr>
+            <tr><td><span class="badge medium">MEDIUM</span></td><td><b>{counts['MEDIUM']}</b></td></tr>
+            <tr><td><span class="badge low">LOW</span></td><td><b>{counts['LOW']}</b></td></tr>
+        </tbody>
+    </table>
+
+    <h2>Detailed Findings</h2>
     <table>
         <thead>
             <tr>
@@ -381,7 +449,6 @@ def main():
     findings = load_or_scan_checkpoint(target_dir)
     print(f"[+] Active vulnerability findings loaded: {len(findings)}")
 
-    # Render primary requested report format
     if args.format == "html":
         generate_html_report(findings, "sast_report.html")
     elif args.format == "sarif":
@@ -392,15 +459,19 @@ def main():
         print("[+] Primary JSON report generated: sast_report.json")
     else:
         out_name = f"sast_report.{'md' if args.format == 'markdown' else args.format}"
+        counts = get_severity_counts(findings)
         with open(out_name, 'w', encoding='utf-8') as f:
-            f.write(f"# SAST Audit Summary\nTotal Findings: {len(findings)}\n\n")
+            f.write("# SAST Audit Summary\n\n")
+            f.write("## Executive Summary\n")
+            f.write(f"- Total Findings: **{len(findings)}**\n")
+            f.write(f"- Critical: {counts['CRITICAL']} | High: {counts['HIGH']} | Medium: {counts['MEDIUM']} | Low: {counts['LOW']}\n\n")
+            f.write("## Detailed Findings\n")
             for item in findings:
-                f.write(f"## {item.get('title')} ({item.get('severity')})\n")
+                f.write(f"### {item.get('title')} ({item.get('severity')})\n")
                 f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}`\n")
                 f.write(f"- CWE: {item.get('cwe_id')}\n\n")
         print(f"[+] Primary report generated: {out_name}")
 
-    # Render mandatory PDF report
     generate_pdf_report(findings, "sast_security_report.pdf")
 
 if __name__ == "__main__":
