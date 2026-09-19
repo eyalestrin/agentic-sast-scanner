@@ -437,18 +437,28 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
 <head>
     <title>Static Application Security Testing (SAST) Audit Report</title>
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background: #f8fafc; color: #0f172a; }}
+        * {{ box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background: #f8fafc; color: #0f172a; max-width: 100%; overflow-x: hidden; }}
         h1, h2 {{ color: #0f172a; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 24px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
-        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: top; }}
+        table {{ width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 12px; margin-bottom: 24px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
+        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }}
         th {{ background: #f1f5f9; }}
-        pre {{ background: #0f172a; color: #f8fafc; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 12px; }}
+        pre {{ background: #0f172a; color: #f8fafc; padding: 8px; border-radius: 4px; max-width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-size: 12px; }}
+        code {{ overflow-wrap: anywhere; word-break: break-word; }}
         .badge {{ padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }}
         .critical {{ background: #dc2626; }}
         .high {{ background: #ea580c; }}
         .medium {{ background: #d97706; }}
         .low {{ background: #2563eb; }}
-        .summary-table {{ width: 50%; }}
+        .summary-table {{ width: 50%; min-width: 280px; }}
+        @media (max-width: 800px) {{
+            body {{ margin: 10px; }}
+            h1 {{ font-size: 1.45rem; }}
+            h2 {{ font-size: 1.15rem; }}
+            th, td {{ padding: 7px; font-size: 0.85rem; }}
+            pre {{ font-size: 10px; padding: 5px; }}
+            .summary-table {{ width: 100%; min-width: 0; }}
+        }}
     </style>
 </head>
 <body>
