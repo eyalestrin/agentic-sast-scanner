@@ -1,9 +1,3 @@
----
-
-### File 2: `sast_engine.py`
-Place this file globally at `~/.vscode/skills/sast_engine.py`.
-
-```python
 #!/usr/bin/env python3
 """
 Agentic SAST Engine
@@ -248,6 +242,50 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
         f.write(html_content)
     print(f"[+] HTML report generated: {output_html_path}")
 
+def generate_sarif_report(findings, output_sarif_path="sast_report.sarif"):
+    """Generates SARIF format report for IDE and CI/CD ingestion."""
+    sarif_rules = []
+    sarif_results = []
+
+    for index, item in enumerate(findings):
+        rule_id = f"SAST-{item.get('cwe_id', 'UNKNOWN')}-{index}"
+        sarif_rules.append({
+            "id": rule_id,
+            "name": item.get('title'),
+            "shortDescription": {"text": item.get('title')},
+            "fullDescription": {"text": item.get('remediation')},
+            "help": {"text": f"Remediation: {item.get('remediation')}"}
+        })
+        sarif_results.append({
+            "ruleId": rule_id,
+            "message": {"text": f"{item.get('title')}: {item.get('remediation')}"},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": item.get('file_path')},
+                    "region": {"startLine": item.get('start_line', 1)}
+                }
+            }]
+        })
+
+    sarif_data = {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "Agentic SAST Scanner",
+                    "informationUri": "https://github.com/eyalestrin/agentic-sast-scanner",
+                    "rules": sarif_rules
+                }
+            },
+            "results": sarif_results
+        }]
+    }
+
+    with open(output_sarif_path, 'w', encoding='utf-8') as f:
+        json.dump(sarif_data, f, indent=2)
+    print(f"[+] SARIF report generated: {output_sarif_path}")
+
 def main():
     parser = argparse.ArgumentParser(description="Cross-Platform Agentic SAST Engine")
     parser.add_argument("--format", choices=["markdown", "sarif", "json", "html"], default="html")
@@ -260,9 +298,11 @@ def main():
     findings = load_or_scan_checkpoint(target_dir)
     print(f"[+] Active vulnerability findings loaded: {len(findings)}")
 
-    # Render primary requested report
+    # Render primary requested report format
     if args.format == "html":
         generate_html_report(findings, "sast_report.html")
+    elif args.format == "sarif":
+        generate_sarif_report(findings, "sast_report.sarif")
     elif args.format == "json":
         with open("sast_report.json", 'w', encoding='utf-8') as f:
             json.dump(findings, f, indent=2)
