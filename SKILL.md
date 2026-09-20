@@ -26,7 +26,7 @@ Use `python3 ~/.vscode/skills/sast_engine.py --list-models` to display only
 currently detected runtime model names. Pass the resulting model name to
 `--scanner-model` when rendering agent findings.
 
-When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `~/.vscode/skills/agent_findings.json` using the documented JSON schema and invoke the renderer with `--findings-input ~/.vscode/skills/agent_findings.json` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
+When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `~/.vscode/skills/agent_findings.json` using the documented JSON schema. Supplying `--scanner-model` automatically selects that canonical findings file; `--findings-input` is optional. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
 When `--findings-input` is supplied but the file is missing, the engine must
 stop; it must not label deterministic fallback findings as LLM findings.
 If no Gemini terminal CLI is installed, the findings file must be created by

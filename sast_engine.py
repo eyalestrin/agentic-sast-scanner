@@ -352,15 +352,18 @@ def validate_agent_findings_path(findings_path, target_dir):
     """Fails before report cleanup when explicit agent input is unavailable."""
     resolved_path = Path(resolve_findings_path(findings_path, target_dir))
     if not resolved_path.is_file():
+        directory_guidance = ""
+        if Path.cwd().resolve() == Path(__file__).resolve().parent:
+            directory_guidance = " Do not use --dir . from ~/.vscode/skills; use --dir ~/VulnerableApp."
         raise SystemExit(
             f"[-] Error: Agent findings file not found in the skill folder: {resolved_path}. "
-            "Ask Gemini to create it before running the renderer. "
+            "Ask Gemini to create it before running the Gemini-backed renderer. "
             "The renderer cannot invoke Gemini or create genuine LLM findings itself. "
-            "No Gemini CLI is installed in this environment; use the installed Gemini VS Code extension. "
-            "Do not use --dir . from ~/.vscode/skills; that scans the skill folder. "
-            "Example: python3 ~/.vscode/skills/sast_engine.py --dir ~/VulnerableApp "
-            "--findings-input ~/.vscode/skills/agent_findings.json "
-            "--scanner-model gemini-1.0-pro --format html"
+            "No Gemini CLI is installed; use the installed Gemini VS Code extension."
+            f"{directory_guidance} "
+            "Example Gemini command: python3 ~/.vscode/skills/sast_engine.py --dir ~/VulnerableApp "
+            "--scanner-model gemini-1.0-pro --format html. "
+            "For a deterministic scan without Gemini, omit --findings-input and --scanner-model."
         )
     return str(resolved_path)
 
@@ -943,6 +946,8 @@ def main():
         parser.error("--scanner-model is required when --findings-input is used")
 
     findings_path = None
+    if args.scanner_model and not args.findings_input:
+        args.findings_input = str(AGENT_FINDINGS_FILE)
     if args.findings_input:
         findings_path = validate_agent_findings_path(args.findings_input, args.dir)
 

@@ -185,10 +185,12 @@ Code extension; the Python renderer only validates and formats that file.
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \
-  --findings-input ~/.vscode/skills/agent_findings.json \
   --scanner-model "GPT-5.2-Copilot" \
   --format html
 ```
+
+When `--scanner-model` is supplied, the renderer automatically reads
+`~/.vscode/skills/agent_findings.json`; `--findings-input` is optional.
 
 Change `--scanner-model` to the exact model selected in the agent
 extension. Examples include `Gemini 2.5 Pro` and `Claude Sonnet 4`.
@@ -198,6 +200,14 @@ that deterministic rules used the external model.
 When `--findings-input` is supplied, the file is required. If it is missing,
 the command stops with an actionable error instead of generating a
 deterministic report labeled with the requested LLM model.
+
+There are two valid modes:
+
+1. Gemini-backed mode: Gemini creates `~/.vscode/skills/agent_findings.json`,
+   then the renderer uses it with `--scanner-model gemini-1.0-pro`.
+2. Deterministic mode: omit both `--findings-input` and `--scanner-model`.
+
+The Python renderer cannot turn deterministic findings into Gemini findings.
 
 #### Installed LLM model
 
@@ -219,7 +229,6 @@ Use that model name with the scanner switch:
 # Example: the installed Gemini runtime model is gemini-1.0-pro
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \
-  --findings-input ~/.vscode/skills/agent_findings.json \
   --scanner-model "gemini-1.0-pro" \
   --format html
 ```
