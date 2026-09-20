@@ -275,6 +275,29 @@ def discover_agent_extensions():
                         "extension_id": extension_id,
                         "extension_version": package.get("version", "unknown"),
                     }
+
+    code_cli = shutil.which("code")
+    if code_cli:
+        try:
+            result = subprocess.run(
+                [code_cli, "--list-extensions", "--show-versions"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            for line in result.stdout.splitlines():
+                extension_id, separator, version = line.strip().partition("@")
+                if not separator:
+                    continue
+                for provider, (identifier, _) in SUPPORTED_LLM_INTEGRATIONS:
+                    if identifier in extension_id.lower():
+                        discovered[provider] = {
+                            "extension_id": extension_id,
+                            "extension_version": version,
+                        }
+        except (OSError, subprocess.TimeoutExpired):
+            pass
     return discovered
 
 

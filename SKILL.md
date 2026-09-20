@@ -12,6 +12,14 @@ Reports must also state every programming language detected from the scanned sou
 
 Detected external-agent integrations and locally installed extension versions can be listed with:
 `python3 ~/.vscode/skills/sast_engine.py --list-models`
+For the connected WSL environment, confirm the underlying extension inventory with:
+`code --list-extensions --show-versions`
+Only extensions present in that output are currently installed for the remote
+environment; do not report Copilot as available unless `github.copilot-chat`
+appears there.
+If an install command reports Copilot as already installed but the inventory
+does not list it, treat the active inventory as authoritative and reconnect
+the WSL window before scanning.
 The active Copilot, Gemini, or Claude model and model version must be selected in its extension or CLI. Pass its exact displayed name to `--scanner-model` when rendering agent findings; the standalone renderer cannot discover or select runtime model versions.
 
 For GitHub Copilot, use the official VS Code extension `github.copilot-chat`,

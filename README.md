@@ -195,6 +195,25 @@ Verify the extension version in the same VS Code environment:
 code --list-extensions --show-versions | grep github.copilot
 ```
 
+To verify all extensions installed in the connected WSL environment, run:
+
+```Bash
+code --list-extensions --show-versions
+```
+
+On the current machine this reports `galacticgit.gemini-chat@0.0.1` and no
+`github.copilot-chat` entry. Therefore Gemini is the currently installed LLM
+integration; Copilot is not currently available in this WSL extension set.
+Use `python3 ~/.vscode/skills/sast_engine.py --list-models` for the same
+LLM-only summary.
+
+If `code --install-extension github.copilot-chat` says that Copilot version
+`0.66.0` is already installed but `code --list-extensions --show-versions`
+does not show it, the install message and active WSL inventory are out of
+sync. Reconnect the WSL window, run the list command again, and use the active
+inventory as the source of truth. The skill checks both the extension metadata
+and the connected `code --list-extensions --show-versions` output.
+
 Verify Copilot Free eligibility by opening the GitHub Copilot settings or
 plans page while signed in to GitHub. The exact model availability and usage
 limits depend on the account and current GitHub plan; pass the selected model
