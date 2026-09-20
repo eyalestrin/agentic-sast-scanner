@@ -97,7 +97,7 @@ python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html --d
 
 ### Agent-driven scanning with Copilot, Gemini, or Claude
 
-You do not need to write `agent_findings.json` manually. Ask the active
+You do not need to write `~/.vscode/skills/agent_findings.json` manually. Ask the active
 VS Code agent to inspect the repository and create the file. The Python
 engine cannot call or switch the active VS Code model directly. The
 `--scanner-model` option records which model performed the agent scan.
@@ -108,10 +108,9 @@ To see the currently supported agent integrations:
 python3 ~/.vscode/skills/sast_engine.py --list-models
 ```
 
-This lists GitHub Copilot, Google Gemini, and Anthropic Claude integrations,
-plus the deterministic fallback. When an extension is installed locally,
-its extension version is shown. The active model and model version are
-selected at runtime in the corresponding extension or CLI.
+This shows only LLM integrations detected on the current machine and their
+installed extension versions. The active model and model version are selected
+at runtime in the corresponding extension or CLI.
 
 #### Agent instructions
 
@@ -120,7 +119,7 @@ Use the following prompt in Copilot Chat, Gemini Code Assist, or Claude:
 ```text
 Use the Agentic SAST Scanner skill.
 Scan this repository semantically for vulnerabilities.
-Create agent_findings.json in the current folder using the schema in the
+Create `~/.vscode/skills/agent_findings.json` using the schema in the
 skill README. Include only focused vulnerable lines and provide an exact
 copy/paste recommended_replacement for every finding.
 ```
@@ -149,13 +148,14 @@ The findings file must use this structure:
 
 #### Renderer command
 
-After the agent creates `agent_findings.json`, run the renderer from the
-directory where reports should be written:
+After the agent creates `~/.vscode/skills/agent_findings.json`, run
+the renderer from the directory where reports should be written. A relative
+with the canonical skill-folder findings path:
 
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \
-  --findings-input agent_findings.json \
+  --findings-input ~/.vscode/skills/agent_findings.json \
   --scanner-model "GPT-5.2-Copilot" \
   --format html
 ```
@@ -165,11 +165,40 @@ extension. Examples include `Gemini 2.5 Pro` and `Claude Sonnet 4`.
 The engine validates and formats the agent findings; it does not claim
 that deterministic rules used the external model.
 
+#### GitHub Copilot Free setup
+
+The official VS Code extension is `github.copilot-chat`. A GitHub Copilot
+Free plan can be used only after signing in with an eligible GitHub account;
+the renderer cannot inspect your private account or entitlement.
+
+Install the extension in the VS Code environment where the repository is
+open:
+
+```Bash
+code --install-extension github.copilot-chat
+```
+
+Or install **GitHub Copilot Chat** (`github.copilot-chat`) from the VS Code
+Extensions view. Then sign in through the Accounts menu and select the
+Copilot model in the Copilot Chat model picker.
+
+Verify the extension version in the same VS Code environment:
+
+```Bash
+code --list-extensions --show-versions | grep github.copilot
+```
+
+Verify Copilot Free eligibility by opening the GitHub Copilot settings or
+plans page while signed in to GitHub. The exact model availability and usage
+limits depend on the account and current GitHub plan; pass the selected model
+name to `--scanner-model` after the agent creates:
+`~/.vscode/skills/agent_findings.json`.
+
 ```Bash
 # Example: the active Gemini model is Gemini 2.5 Pro
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \
-  --findings-input agent_findings.json \
+  --findings-input ~/.vscode/skills/agent_findings.json \
   --scanner-model "Gemini 2.5 Pro" \
   --format html
 ```

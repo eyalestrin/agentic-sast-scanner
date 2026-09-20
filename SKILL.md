@@ -10,11 +10,16 @@ The generated reports must state the exact scanner model. This implementation us
 `No LLM model used; deterministic heuristic SAST rules`
 Reports must also state every programming language detected from the scanned source files.
 
-Supported external-agent integrations and locally installed extension versions can be listed with:
+Detected external-agent integrations and locally installed extension versions can be listed with:
 `python3 ~/.vscode/skills/sast_engine.py --list-models`
 The active Copilot, Gemini, or Claude model and model version must be selected in its extension or CLI. Pass its exact displayed name to `--scanner-model` when rendering agent findings; the standalone renderer cannot discover or select runtime model versions.
 
-When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `agent_findings.json` using the documented JSON schema and invoke the renderer with `--findings-input` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
+For GitHub Copilot, use the official VS Code extension `github.copilot-chat`,
+sign in with GitHub, and verify Copilot Free eligibility in the GitHub account
+plans/settings UI. The skill must not claim that a user has Copilot Free access
+because account entitlements are private and unavailable to the Python renderer.
+
+When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `~/.vscode/skills/agent_findings.json` using the documented JSON schema and invoke the renderer with `--findings-input ~/.vscode/skills/agent_findings.json` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
 
 ## STAGE 2: EXECUTION & CHUNKING AGENTIC PROTOCOL
 - Walk the project folder recursively.

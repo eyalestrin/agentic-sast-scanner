@@ -34,6 +34,7 @@ SUPPORTED_EXTENSIONS = {
 EXCLUDED_DIRS = {'.git', 'node_modules', 'venv', '.venv', 'target', 'bin', 'obj', '__pycache__'}
 CHECKPOINT_FILE = "sast_checkpoint.json"
 JSON_REPORT_FILE = "sast_report.json"
+AGENT_FINDINGS_FILE = Path(__file__).resolve().parent / "agent_findings.json"
 REPORT_FILES = {
     "sast_report.html",
     "sast_report.md",
@@ -230,7 +231,14 @@ def build_report_metadata(target_dir, scanner_model=None):
 
 def load_agent_findings(findings_path):
     """Loads findings produced by Copilot, Gemini, Claude, or another external agent."""
-    with open(findings_path, 'r', encoding='utf-8') as handle:
+    findings_file = Path(findings_path)
+    if not findings_file.is_file():
+        raise FileNotFoundError(
+            f"Agent findings file not found in the skill folder: {findings_file.resolve()}. "
+            "Ask the selected LLM agent to create agent_findings.json first, "
+            "or provide the correct path with --findings-input."
+        )
+    with open(findings_file, 'r', encoding='utf-8') as handle:
         data = json.load(handle)
     if isinstance(data, dict) and "findings" in data:
         findings = data["findings"]
@@ -271,19 +279,27 @@ def discover_agent_extensions():
 
 
 def print_supported_models():
-    """Prints supported integrations, installed extension versions, and model limits."""
+    """Prints only LLM integrations detected on this machine."""
     installed = discover_agent_extensions()
-    print("Supported LLM agent integrations on this machine:")
+    print("Currently supported LLM integrations detected on this machine:")
+    if not installed:
+        print("- None detected")
+        return
     for provider, (_, instruction) in SUPPORTED_LLM_INTEGRATIONS:
         details = installed.get(provider)
         if details:
-            print(f"- {provider}: installed extension {details['extension_id']} version {details['extension_version']}")
-        else:
-            print(f"- {provider}: extension not detected locally")
-        print(f"  {instruction}")
-        print("  Model versions: selected at runtime; not exposed to the standalone Python scanner.")
-    print("- Deterministic fallback: No LLM model used; deterministic heuristic SAST rules")
-    print("The Python scanner renders agent findings but does not select or invoke external LLMs.")
+            print(f"- {provider}: {details['extension_id']} version {details['extension_version']}")
+            print(f"  {instruction}")
+
+
+def resolve_findings_path(findings_path, target_dir):
+    """Resolves relative findings from the skill directory."""
+    requested_path = Path(findings_path).expanduser()
+    if requested_path.is_absolute():
+        return str(requested_path)
+    if requested_path.name == AGENT_FINDINGS_FILE.name:
+        return str(AGENT_FINDINGS_FILE)
+    return str(Path(__file__).resolve().parent / requested_path)
 
 
 def finding_report_data(finding):
@@ -863,12 +879,21 @@ def main():
         cleanup_checkpoint(target_dir)
         print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
 
+        findings_model = args.scanner_model
         if args.findings_input:
-            findings = load_agent_findings(args.findings_input)
-            print(f"[+] Loaded agent findings from: {args.findings_input}")
+            findings_path = resolve_findings_path(args.findings_input, target_dir)
+            try:
+                findings = load_agent_findings(findings_path)
+            except FileNotFoundError as error:
+                print(f"[!] {error}")
+                print("[!] Running deterministic fallback; this report will not claim that Gemini scanned the code.")
+                findings = load_or_scan_checkpoint(target_dir)
+                findings_model = None
+            else:
+                print(f"[+] Loaded agent findings from: {findings_path}")
         else:
             findings = load_or_scan_checkpoint(target_dir)
-        metadata = build_report_metadata(target_dir, args.scanner_model)
+        metadata = build_report_metadata(target_dir, findings_model)
         print(f"[+] Active vulnerability findings loaded: {len(findings)}")
         print(f"[+] Scanner model: {metadata['scanner_model']}")
         print(f"[+] Detected languages: {', '.join(metadata['detected_languages'])}")
