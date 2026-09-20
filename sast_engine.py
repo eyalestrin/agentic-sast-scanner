@@ -43,9 +43,9 @@ REPORT_FILES = {
 }
 SCANNER_MODEL = "No LLM model used; deterministic heuristic SAST rules"
 SUPPORTED_LLM_INTEGRATIONS = (
-    ("GitHub Copilot", "Select the active Copilot model in VS Code; pass its exact displayed name with --scanner-model."),
-    ("Google Gemini", "Select the active Gemini model in Gemini Code Assist; pass its exact displayed name with --scanner-model."),
-    ("Anthropic Claude", "Select the active Claude model in the Claude extension or CLI; pass its exact displayed name with --scanner-model."),
+    ("GitHub Copilot", ("github.copilot", "Select the active Copilot model in VS Code; pass its exact displayed name with --scanner-model.")),
+    ("Google Gemini", ("gemini", "Select the active Gemini model in Gemini Code Assist; pass its exact displayed name with --scanner-model.")),
+    ("Anthropic Claude", ("claude", "Select the active Claude model in the Claude extension or CLI; pass its exact displayed name with --scanner-model.")),
 )
 
 SEVERITY_ORDER = {
@@ -243,11 +243,45 @@ def load_agent_findings(findings_path):
     return sort_findings([compact_finding_code(dict(item)) for item in findings])
 
 
+def discover_agent_extensions():
+    """Finds installed agent extensions and their package versions on this machine."""
+    extension_roots = [Path.home() / ".vscode-server" / "extensions", Path.home() / ".vscode" / "extensions"]
+    if os.environ.get("VSCODE_EXTENSIONS"):
+        extension_roots.insert(0, Path(os.environ["VSCODE_EXTENSIONS"]))
+    discovered = {}
+    for root in extension_roots:
+        if not root or not root.is_dir():
+            continue
+        for extension_dir in root.iterdir():
+            package_path = extension_dir / "package.json"
+            if not package_path.is_file():
+                continue
+            try:
+                package = json.loads(package_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            extension_id = f"{package.get('publisher', '')}.{package.get('name', '')}".lower()
+            for provider, (identifier, _) in SUPPORTED_LLM_INTEGRATIONS:
+                if identifier in extension_id or identifier in extension_dir.name.lower():
+                    discovered[provider] = {
+                        "extension_id": extension_id,
+                        "extension_version": package.get("version", "unknown"),
+                    }
+    return discovered
+
+
 def print_supported_models():
-    """Prints supported external-agent integrations and their invocation boundary."""
-    print("Supported LLM agent integrations:")
-    for provider, instruction in SUPPORTED_LLM_INTEGRATIONS:
-        print(f"- {provider}: {instruction}")
+    """Prints supported integrations, installed extension versions, and model limits."""
+    installed = discover_agent_extensions()
+    print("Supported LLM agent integrations on this machine:")
+    for provider, (_, instruction) in SUPPORTED_LLM_INTEGRATIONS:
+        details = installed.get(provider)
+        if details:
+            print(f"- {provider}: installed extension {details['extension_id']} version {details['extension_version']}")
+        else:
+            print(f"- {provider}: extension not detected locally")
+        print(f"  {instruction}")
+        print("  Model versions: selected at runtime; not exposed to the standalone Python scanner.")
     print("- Deterministic fallback: No LLM model used; deterministic heuristic SAST rules")
     print("The Python scanner renders agent findings but does not select or invoke external LLMs.")
 

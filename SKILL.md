@@ -10,9 +10,9 @@ The generated reports must state the exact scanner model. This implementation us
 `No LLM model used; deterministic heuristic SAST rules`
 Reports must also state every programming language detected from the scanned source files.
 
-Supported external-agent integrations can be listed with:
+Supported external-agent integrations and locally installed extension versions can be listed with:
 `python3 ~/.vscode/skills/sast_engine.py --list-models`
-The active Copilot, Gemini, or Claude model must be selected in its extension or CLI. Pass its exact displayed name to `--scanner-model` when rendering agent findings.
+The active Copilot, Gemini, or Claude model and model version must be selected in its extension or CLI. Pass its exact displayed name to `--scanner-model` when rendering agent findings; the standalone renderer cannot discover or select runtime model versions.
 
 When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `agent_findings.json` using the documented JSON schema and invoke the renderer with `--findings-input` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
 
