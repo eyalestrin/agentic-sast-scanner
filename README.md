@@ -226,7 +226,6 @@ gemini-1.0-pro
 Use that model name with the scanner switch:
 
 ```Bash
-# Example: the installed Gemini runtime model is gemini-1.0-pro
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \
   --scanner-model "gemini-1.0-pro" \
