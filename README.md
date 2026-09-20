@@ -189,8 +189,10 @@ python3 ~/.vscode/skills/sast_engine.py \
   --format html
 ```
 
-When `--scanner-model` is supplied, the renderer automatically reads
-`~/.vscode/skills/agent_findings.json`; `--findings-input` is optional.
+When `--findings-input` is supplied, the renderer reads the canonical
+skill-folder file and records `--scanner-model` in the reports. Supplying only
+`--scanner-model` does not invoke an LLM; it runs deterministic analysis and
+prints a warning.
 
 Change `--scanner-model` to the exact model selected in the agent
 extension. Examples include `Gemini 2.5 Pro` and `Claude Sonnet 4`.
@@ -204,8 +206,10 @@ deterministic report labeled with the requested LLM model.
 There are two valid modes:
 
 1. Gemini-backed mode: Gemini creates `~/.vscode/skills/agent_findings.json`,
-   then the renderer uses it with `--scanner-model gemini-1.0-pro`.
-2. Deterministic mode: omit both `--findings-input` and `--scanner-model`.
+  then the renderer uses it with `--findings-input` and
+  `--scanner-model gemini-1.0-pro`.
+2. Deterministic mode: omit `--findings-input` and `--scanner-model`, or omit
+  only `--findings-input` to receive a warning and use deterministic analysis.
 
 The Python renderer cannot turn deterministic findings into Gemini findings.
 

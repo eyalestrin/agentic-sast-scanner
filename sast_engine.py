@@ -946,8 +946,6 @@ def main():
         parser.error("--scanner-model is required when --findings-input is used")
 
     findings_path = None
-    if args.scanner_model and not args.findings_input:
-        args.findings_input = str(AGENT_FINDINGS_FILE)
     if args.findings_input:
         findings_path = validate_agent_findings_path(args.findings_input, args.dir)
 
@@ -957,15 +955,18 @@ def main():
         cleanup_checkpoint(target_dir)
         print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
 
-        findings_model = args.scanner_model
+        findings_model = None
         if args.findings_input:
             try:
                 findings = load_agent_findings(findings_path)
             except FileNotFoundError as error:
                 raise SystemExit(f"[-] Error: {error}") from None
             else:
+                findings_model = args.scanner_model
                 print(f"[+] Loaded agent findings from: {findings_path}")
         else:
+            if args.scanner_model:
+                print("[!] No agent findings supplied; ignoring --scanner-model and using deterministic analysis.")
             findings = load_or_scan_checkpoint(target_dir)
         metadata = build_report_metadata(target_dir, findings_model)
         print(f"[+] Active vulnerability findings loaded: {len(findings)}")
