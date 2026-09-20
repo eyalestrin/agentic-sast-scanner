@@ -45,7 +45,7 @@ generated reports may be written elsewhere.
 ## STAGE 2: EXECUTION & CHUNKING AGENTIC PROTOCOL
 - Walk the project folder recursively.
 - Filter out binary assets, dependency directories (`node_modules`, `vendor`, `.git`, `venv`, `target`, `bin`), and lockfiles.
-- Automatically classify every programming language source file (`.py`, `.java`, `.pl`, `.cs`, `.js`, `.ts`, `.go`, `.rb`, `.cpp`, `.c`, `.php`).
+- Automatically classify every programming language and ASP.NET source file (`.py`, `.java`, `.pl`, `.cs`, `.js`, `.ts`, `.go`, `.rb`, `.cpp`, `.c`, `.php`, `.cshtml`, `.config`).
 - Process source code in **400-line chunks**.
 - Read and update the local checkpoint file (`sast_checkpoint.json`) after each 400-line block to preserve progress across session restarts.
 

@@ -28,7 +28,8 @@ from reportlab.lib import colors
 SUPPORTED_EXTENSIONS = {
     '.py': 'Python', '.java': 'Java', '.cs': '.NET/C#', '.js': 'JavaScript',
     '.ts': 'TypeScript', '.pl': 'Perl', '.pm': 'Perl', '.php': 'PHP',
-    '.c': 'C', '.cpp': 'C++', '.go': 'Go', '.rb': 'Ruby', '.rs': 'Rust'
+    '.c': 'C', '.cpp': 'C++', '.go': 'Go', '.rb': 'Ruby', '.rs': 'Rust',
+    '.cshtml': 'ASP.NET Razor', '.config': 'ASP.NET/XML'
 }
 
 EXCLUDED_DIRS = {'.git', 'node_modules', 'venv', '.venv', 'target', 'bin', 'obj', '__pycache__'}
@@ -42,6 +43,7 @@ REPORT_FILES = {
     "sast_report.json",
     "sast_security_report.pdf",
 }
+
 SCANNER_MODEL = "No LLM model used; deterministic heuristic SAST rules"
 SUPPORTED_LLM_INTEGRATIONS = (
     ("GitHub Copilot", ("github.copilot", "Select the active Copilot model in VS Code; pass its exact displayed name with --scanner-model.")),
@@ -58,7 +60,6 @@ SEVERITY_ORDER = {
 
 # Static heuristic fallback rules with validated reference URLs
 STATIC_HEURISTIC_RULES = [
-    # Critical / High Severity Rules
     {
         "title": "OS Command Injection via Runtime / Shell Execution",
         "cwe_id": "CWE-78",
@@ -66,10 +67,7 @@ STATIC_HEURISTIC_RULES = [
         "severity": "CRITICAL",
         "pattern": r"(Runtime\.getRuntime\(\)\.exec|ProcessBuilder|os\.system|subprocess\.(Popen|run|call)|child_process\.(exec|execFile|spawn)|shell\s*=\s*True)",
         "remediation": "Avoid invoking system shells directly. Parameterize arguments using structured array APIs.",
-        "references": [
-            "https://cwe.mitre.org/data/definitions/78.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html"
-        ]
+        "references": ["https://cwe.mitre.org/data/definitions/78.html", "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html"]
     },
     {
         "title": "Potential SQL Injection via String Concatenation",
@@ -78,10 +76,7 @@ STATIC_HEURISTIC_RULES = [
         "severity": "HIGH",
         "pattern": r"(SELECT|INSERT|UPDATE|DELETE).*\+.*",
         "remediation": "Use parameterized prepared statements instead of dynamic SQL string concatenation.",
-        "references": [
-            "https://cwe.mitre.org/data/definitions/89.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Query_Parameterization_Cheat_Sheet.html"
-        ]
+        "references": ["https://cwe.mitre.org/data/definitions/89.html", "https://cheatsheetseries.owasp.org/cheatsheets/Query_Parameterization_Cheat_Sheet.html"]
     },
     {
         "title": "Potential Server-Side Request Forgery (SSRF)",
@@ -90,10 +85,7 @@ STATIC_HEURISTIC_RULES = [
         "severity": "HIGH",
         "pattern": r"(\.exchange\(|\.getForObject\(|requests\.get\(|fetch\().*request\.",
         "remediation": "Validate target URLs against an explicit allowlist and block access to private/internal network ranges.",
-        "references": [
-            "https://cwe.mitre.org/data/definitions/918.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"
-        ]
+        "references": ["https://cwe.mitre.org/data/definitions/918.html", "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"]
     },
     {
         "title": "Path Traversal / Unsanitized File Access",
@@ -102,12 +94,8 @@ STATIC_HEURISTIC_RULES = [
         "severity": "HIGH",
         "pattern": r"(FileReader|FileInputStream|open\().*path",
         "remediation": "Canonicalize file paths using Path.toRealPath() before enforcing access boundaries.",
-        "references": [
-            "https://cwe.mitre.org/data/definitions/22.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html"
-        ]
+        "references": ["https://cwe.mitre.org/data/definitions/22.html", "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html"]
     },
-    # Medium / Low Severity Rules
     {
         "title": "Sensitive Information Logging / Verbose Output",
         "cwe_id": "CWE-532",
@@ -115,10 +103,7 @@ STATIC_HEURISTIC_RULES = [
         "severity": "MEDIUM",
         "pattern": r"(log\.info|log\.debug|System\.out\.println)\(.*(password|secret|key|path|domainName|url)",
         "remediation": "Sanitize and mask sensitive variables before writing them to application log output.",
-        "references": [
-            "https://cwe.mitre.org/data/definitions/532.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"
-        ]
+        "references": ["https://cwe.mitre.org/data/definitions/532.html", "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"]
     },
     {
         "title": "Disabled CSRF Protection",
@@ -127,10 +112,7 @@ STATIC_HEURISTIC_RULES = [
         "severity": "MEDIUM",
         "pattern": r"\.csrf\(\)\.disable\(\)",
         "remediation": "Re-enable CSRF protection for state-changing HTTP endpoints.",
-        "references": [
-            "https://cwe.mitre.org/data/definitions/352.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
-        ]
+        "references": ["https://cwe.mitre.org/data/definitions/352.html", "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"]
     },
     {
         "title": "Generic Exception Catching / Potential Stack Trace Exposure",
@@ -139,10 +121,16 @@ STATIC_HEURISTIC_RULES = [
         "severity": "LOW",
         "pattern": r"catch\s*\(\s*Exception\s+e\s*\)",
         "remediation": "Catch specific exception types rather than generic Exception to avoid swallowing critical errors or exposing stack traces.",
-        "references": [
-            "https://cwe.mitre.org/data/definitions/396.html",
-            "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"
-        ]
+        "references": ["https://cwe.mitre.org/data/definitions/396.html", "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"]
+    },
+    {
+        "title": "ASP.NET Debug Mode Enabled",
+        "cwe_id": "CWE-489",
+        "owasp_category": "A05:2021-Security Misconfiguration",
+        "severity": "MEDIUM",
+        "pattern": r"<compilation\b[^>]*\bdebug\s*=\s*[\"']true[\"']",
+        "remediation": "Disable ASP.NET debug mode in deployed environments to prevent verbose diagnostics and reduce runtime exposure.",
+        "references": ["https://cwe.mitre.org/data/definitions/489.html", "https://learn.microsoft.com/aspnet/mvc/overview/getting-started/introduction/creating-a-connection-string"]
     }
 ]
 
@@ -161,15 +149,15 @@ def get_severity_counts(findings):
             counts["MEDIUM"] += 1
     return counts
 
-
 RECOMMENDED_FIXES = {
     "CWE-78": "subprocess.run([command, argument], shell=False, check=True)",
     "CWE-89": "prepared_statement = connection.prepareStatement(\"SELECT column FROM table WHERE id = ?\"); prepared_statement.setString(1, user_value)",
     "CWE-918": "allowed_url = validate_against_allowlist(request_url); response = requests.get(allowed_url, timeout=5)",
-    "CWE-22": "safe_path = Path(base_dir, user_path).resolve(); assert safe_path.is_relative_to(Path(base_dir).resolve())",
+    "CWE-22": "safe_path = path(base_dir, user_path).resolve(); assert safe_path.is_relative_to(Path(base_dir).resolve())",
     "CWE-532": "logger.info(\"Request for key=%s\", mask_secret(secret_key))",
     "CWE-352": "http.csrf(csrf -> csrf.csrfTokenRepository(tokenRepository))",
     "CWE-396": "except (IOException error): handle_input_error(error)",
+    "CWE-489": "<compilation debug=\"false\" targetFramework=\"4.5\" />",
 }
 
 LANGUAGE_FIXES = {
@@ -190,9 +178,8 @@ LANGUAGE_FIXES = {
         "CWE-532": "logger.info(\"Request for key={}\", maskSecret(secretKey));",
         "CWE-352": "http.csrf(csrf -> csrf.csrfTokenRepository(tokenRepository));",
         "CWE-396": "catch (IOException error) { handleInputError(error); }",
-    },
+    }
 }
-
 
 def get_recommended_fix(finding):
     """Returns a concrete copy-paste replacement line for a finding's CWE."""
@@ -207,7 +194,6 @@ def get_recommended_fix(finding):
         "secure_value = validate_untrusted_input(raw_value)"
     )
 
-
 def detect_languages(target_dir):
     """Returns the programming languages detected in supported source files."""
     languages = set()
@@ -219,7 +205,6 @@ def detect_languages(target_dir):
                 languages.add(language)
     return sorted(languages)
 
-
 def build_report_metadata(target_dir, scanner_model=None, requested_model=None):
     """Builds metadata that must appear in every report format."""
     languages = detect_languages(target_dir)
@@ -230,9 +215,18 @@ def build_report_metadata(target_dir, scanner_model=None, requested_model=None):
         "detected_languages": languages or ["None detected"],
     }
 
+def load_agent_findings(findings_path, target_dir=None):
+    """Loads findings produced by Copilot, Gemini, Claude, or another external agent.
 
-def load_agent_findings(findings_path):
-    """Loads findings produced by Copilot, Gemini, Claude, or another external agent."""
+    The canonical findings file lives at a single, user-wide location
+    (~/.vscode/skills/agent_findings.json) shared by every project on this
+    machine. Without a cross-check, a file generated for one application could
+    be silently reused to render a report for a completely different
+    application, mislabeling stale findings as if the requested agent had just
+    scanned the current target. When the agent records an optional
+    "scanned_target" field, that value is compared against the directory
+    actually being scanned and a mismatch aborts the run.
+    """
     findings_file = Path(findings_path)
     if not findings_file.is_file():
         raise FileNotFoundError(
@@ -249,17 +243,35 @@ def load_agent_findings(findings_path):
         data = json.load(handle)
     if isinstance(data, dict) and "findings" in data:
         findings = data["findings"]
+        scanned_target = data.get("scanned_target")
     elif isinstance(data, list):
         findings = data
+        scanned_target = None
     else:
         raise ValueError("Agent findings input must be a list or an object with a findings list.")
     if not isinstance(findings, list):
         raise ValueError("Agent findings input must contain a findings list.")
+    if target_dir is not None:
+        resolved_target = str(Path(target_dir).resolve())
+        if scanned_target:
+            if str(Path(scanned_target).expanduser().resolve()) != resolved_target:
+                raise SystemExit(
+                    f"[-] Error: agent_findings.json was generated for '{scanned_target}', "
+                    f"but the current scan target is '{resolved_target}'. "
+                    "Reusing findings across different applications would mislabel stale "
+                    "results as a fresh agent scan. Ask the agent to rescan this target and "
+                    "regenerate agent_findings.json before rerunning."
+                )
+        else:
+            print(
+                "[!] Warning: agent_findings.json does not declare a 'scanned_target'; "
+                "the renderer cannot verify these findings were produced for "
+                f"'{resolved_target}'. Ask the agent to include 'scanned_target' in future scans."
+            )
     return sort_findings([compact_finding_code(dict(item)) for item in findings])
 
-
 def discover_agent_extensions():
-    """Finds installed agent extensions and their package versions on this machine."""
+    """"Finds installed agent extensions and their package versions on this machine."""
     extension_roots = [Path.home() / ".vscode-server" / "extensions", Path.home() / ".vscode" / "extensions"]
     if os.environ.get("VSCODE_EXTENSIONS"):
         extension_roots.insert(0, Path(os.environ["VSCODE_EXTENSIONS"]))
@@ -283,7 +295,6 @@ def discover_agent_extensions():
                         "extension_version": package.get("version", "unknown"),
                         "runtime_model": discover_runtime_model(extension_dir),
                     }
-
     code_cli = shutil.which("code")
     if code_cli:
         try:
@@ -307,11 +318,36 @@ def discover_agent_extensions():
                         }
         except (OSError, subprocess.TimeoutExpired):
             pass
+
+    # Fallback: Some managed/enterprise VS Code installs keep extensions outside
+    # ~/.vscode/extensions and aren't visible to the "code" CLI. Their per-extension
+    # globalStorage folders (named after the extension id) still exist under the
+    # user's Code data directory, so check those as a last resort.
+    global_storage_roots = [
+        Path(os.environ["APPDATA"]) / "Code" / "User" / "globalStorage"
+        if os.environ.get("APPDATA") else None,
+        Path.home() / ".config" / "Code" / "User" / "globalStorage",
+    ]
+    for storage_root in global_storage_roots:
+        if not storage_root or not storage_root.is_dir():
+            continue
+        for entry in storage_root.iterdir():
+            if not entry.is_dir():
+                continue
+            entry_name = entry.name.lower()
+            for provider, (identifier, _) in SUPPORTED_LLM_INTEGRATIONS:
+                if provider in discovered:
+                    continue
+                if identifier in entry_name:
+                    discovered[provider] = {
+                        "extension_id": entry.name,
+                        "extension_version": "unknown",
+                        "runtime_model": None,
+                    }
     return discovered
 
-
 def discover_runtime_model(extension_dir):
-    """Reads an explicitly declared runtime model from an installed extension."""
+    """"Reads an explicitly declared runtime model from an installed extension."""
     model_pattern = re.compile(r"(?:MODEL_NAME|model)\s*[:=]\s*[\"']([^\"']+)[\"']")
     for source_path in extension_dir.rglob("*"):
         if source_path.suffix.lower() not in {".js", ".html", ".json"}:
@@ -325,19 +361,18 @@ def discover_runtime_model(extension_dir):
             return match.group(1)
     return None
 
-
 def print_supported_models():
-    """Prints detected LLMs as copy-pasteable scanner-model switches."""
+    """Prints detected LLM model names."""
     installed = discover_agent_extensions()
     if not installed:
         print("No supported LLM integrations detected.")
         return
     for provider, (_, _) in SUPPORTED_LLM_INTEGRATIONS:
         details = installed.get(provider)
-        if details and details.get("runtime_model"):
-            print(details["runtime_model"])
-    if installed and not any(details.get("runtime_model") for details in installed.values()):
-        print("No runtime LLM model name is exposed by the installed extensions.")
+        if not details:
+            continue
+        model_name = details.get("runtime_model") or provider
+        print(model_name)
 
 
 def resolve_findings_path(findings_path, target_dir):
@@ -546,7 +581,7 @@ def validate_report_output(report_type, output_path, findings, metadata):
         required_tokens = ["Static Application Security Testing (SAST) Audit Report", "Executive Summary", "Detailed Security Findings", f"Total Vulnerabilities Identified:</b> {len(findings)}", escape(expected_model), "Detected Languages"]
         if findings:
             required_tokens.extend(["Focused Vulnerable Code:", "Copy/Paste Fix:"])
-        required_tokens.extend(escape(language) for language in expected_languages)
+        required_tokens.extend([escape(language) for language in expected_languages])
         for token in required_tokens:
             if token not in content:
                 raise ValueError(f"HTML report is missing required token: {token}")
@@ -562,7 +597,7 @@ def validate_report_output(report_type, output_path, findings, metadata):
     elif report_type == "markdown":
         content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
         required_tokens = ["# SAST Audit Summary", f"Scanner Model: **{expected_model}**", "Detected Languages:"]
-        required_tokens.extend(f"- {language}" for language in expected_languages)
+        required_tokens.extend([f"- {language}" for language in expected_languages])
         if findings:
             required_tokens.extend(["Focused Vulnerable Code:", "Copy/Paste Fix:"])
         if any(token not in content for token in required_tokens):
@@ -584,12 +619,99 @@ def validate_report_output(report_type, output_path, findings, metadata):
     return True
 
 
+def _perl_backtick_replacement(line):
+    """Rewrites a single line's backtick/qx() command execution into a safe list-form open('-|', ...) pipe, splicing only the matched expression so everything else on the line (assignment target, trailing modifiers, comments) is preserved exactly."""
+    m = re.search(r"`([^`\n]+)`", line)
+    if m:
+        inner = m.group(1)
+    else:
+        m = re.search(r"qx([\\(/])([^\\/\n]+)[\1/]", line)
+        if not m:
+            return None
+        inner = m.group(2)
+
+    inner = inner.strip()
+    prefix_text = line[:m.start()]
+    assign_match = re.search(
+        r"(?:my\s*)?(\(\s*[\$\@][\w:]+\s*,\s*[\$\@][\w:]+\s*\)|\s*=*\s*$",
+        prefix_text,
+    )
+    is_list_context = bool(assign_match) and ("@" in assign_match.group(1) or "(" in assign_match.group(1))
+
+    if is_list_context:
+        replacement = (
+            "do { open(my $ph, '-|', split(' ', \"" + inner + "\")) "
+            "or die \"Cannot exec: $!\"; my @out = <$ph>; close($ph); @out }"
+        )
+    else:
+        replacement = (
+            "do { open(my $ph, '-|', split(' ', \"" + inner + "\")) "
+            "or die \"Cannot exec: $!\"; local $/; my $out = <$ph>; close($ph); $out }"
+        )
+    return line[:m.start()] + replacement + line[m.end():]
+
+
+def _perl_system_replacement(line, rule_pattern):
+    """Rewrites a system()/exec() call with an interpolated string into the list-form split(' ', ...) invocation, splicing only the matched call."""
+    m = re.search(rule_pattern, line, re.IGNORECASE)
+    if not m:
+        return None
+    inner = m.group(2)
+    replacement = f"system(split(' ', {inner})) == 0 or die \"system failed: $!\""
+    return line[:m.start()] + replacement + line[m.end():]
+
+
+def _perl_open_replacement(line):
+    """Rewrites an insecure 2-argument open() into the safe 3-argument form, splicing only the matched open(...) call so surrounding conditionals and statement modifiers are preserved exactly."""
+    m = re.search(
+        r"open\s*\(\s*(?P<fh>\*\w+|\$\w+)\s*,\s*(?:"
+        r'"(?P<qmode>[<+]{0,2})(?P<qpath>[^"]*)"'
+        r"|'(?P<qmode2>[<+]{0,2})(?P<qpath2>[^']*)'"
+        r'|"(?P<mode>[<+]{0,3})(?P<path>\$[\w:]+(?:\:[^{\s*\}]|\\[[^\n]*\])*)'
+        r")\s*\)",
+        line,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    fh = m.group("fh")
+    if m.group("qpath") is not None:
+        mode = m.group("qmode") or "<"
+        path_expr = f'"{m.group("qpath")}"'
+    elif m.group("qpath2") is not None:
+        mode = m.group("qmode2") or "<"
+        path_expr = f'"{m.group("qpath2")}"'
+    else:
+        mode = m.group("mode") or "<"
+        path_expr = m.group("path")
+    new_call = f"open({fh}, '{mode}', {path_expr})"
+    return line[:m.start()] + new_call + line[m.end():]
+
+
+def generate_exact_perl_fix(line, rule):
+    """Produces an exact, drop-in replacement line by rewriting only the vulnerable expression in place. Falls back to the rule's generic fix_template if the line doesn't match a recognized, safely-rewritable shape."""
+    title = rule.get("title", "")
+    fixed = None
+    try:
+        if title == "Perl Command Injection via Backtick or qx() Shell Execution":
+            fixed = _perl_backtick_replacement(line)
+        elif title == "Perl Command Injection via system()/exec() with Interpolated String":
+            fixed = _perl_system_replacement(line, rule["pattern"])
+        elif title == "Perl Insecure Two-Argument open() with Interpolated Path":
+            fixed = _perl_open_replacement(line)
+    except Exception:
+        fixed = None
+    if fixed:
+        return fixed.strip()
+    return rule.get("fix_template")
+
+
 def analyze_line_heuristics(line, line_num, file_path):
     """Evaluates a single line of code against built-in static patterns."""
     findings = []
     for rule in STATIC_HEURISTIC_RULES:
         if rule["cwe_id"] == "CWE-89" and not re.search(
-            r"\b(query|sql|execute|statement|jdbc|sequelize|knex|database|connection|cursor)\b|\b(db\.)",
+            r"\b(query|sql|execute|statement|jdbc|Sequelize|knex|database|connection|cursor)\b|\b(db\.)",
             line,
             re.IGNORECASE,
         ):
@@ -605,9 +727,11 @@ def analyze_line_heuristics(line, line_num, file_path):
                 "end_line": line_num,
                 "vulnerable_code": compact_vulnerable_code(line, rule["pattern"]),
                 "remediation": rule["remediation"],
+                "recommended_replacement": generate_exact_perl_fix(line, rule),
                 "references": rule["references"]
             })
     return findings
+
 
 def load_or_scan_checkpoint(target_dir):
     """Loads valid vulnerability findings from sast_checkpoint.json or runs fallback scan."""
@@ -616,22 +740,22 @@ def load_or_scan_checkpoint(target_dir):
         try:
             with open(checkpoint_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                
-                raw_findings = []
-                if isinstance(data, list):
-                    raw_findings = data
-                elif isinstance(data, dict) and "findings" in data:
-                    raw_findings = data["findings"]
-                
-                valid_findings = [
-                    item for item in raw_findings 
-                    if isinstance(item, dict) and ("title" in item or "cwe_id" in item or "vulnerable_code" in item)
-                ]
 
-                if valid_findings:
-                    return sort_findings([compact_finding_code(item) for item in valid_findings])
-                else:
-                    print("[-] Found checkpoint file, but it contains raw chunk metadata instead of vulnerability findings. Running fallback scan...")
+            raw_findings = []
+            if isinstance(data, list):
+                raw_findings = data
+            elif isinstance(data, dict) and "findings" in data:
+                raw_findings = data["findings"]
+
+            valid_findings = [
+                item for item in raw_findings
+                if isinstance(item, dict) and ("title" in item or "cwe_id" in item or "vulnerable_code" in item)
+            ]
+
+            if valid_findings:
+                return sort_findings([compact_finding_code(item) for item in valid_findings])
+            else:
+                print("[-] Found checkpoint file, but it contains raw chunk metadata instead of vulnerability findings. Running fallback scan...")
         except Exception as e:
             print(f"[-] Warning: Failed to parse existing {checkpoint_path}: {e}")
 
@@ -664,6 +788,7 @@ def load_or_scan_checkpoint(target_dir):
 
     return sorted_findings
 
+
 def generate_pdf_report(findings, metadata, output_pdf_path="sast_security_report.pdf"):
     """Generates mandatory PDF security report with Executive Summary using ReportLab."""
     doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
@@ -677,6 +802,7 @@ def generate_pdf_report(findings, metadata, output_pdf_path="sast_security_repor
         textColor=colors.HexColor('#1e293b'),
         spaceAfter=12
     )
+
     wrapped_code_style = ParagraphStyle(
         'WrappedCode', parent=styles['Code'], fontSize=10, leading=12, wordWrap='CJK'
     )
@@ -767,6 +893,7 @@ def generate_pdf_report(findings, metadata, output_pdf_path="sast_security_repor
     print(f"[+] Mandatory PDF report generated: {output_pdf_path}")
     return output_pdf_path
 
+
 def generate_html_report(findings, metadata, output_html_path="sast_report.html"):
     """Generates HTML report with Executive Summary table."""
     counts = get_severity_counts(findings)
@@ -785,7 +912,7 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
         refs_html = ""
         if item.get('references'):
             refs_html = "<br/><small>" + "<br/>".join(
-                [f"<a href='{escape(str(r), quote=True)}' target='_blank'>{escape(str(r))}</a>" for r in item.get('references')]
+                [f'<a href="{escape(str(r), quote=True)}" target="_blank">{escape(str(r))}</a>' for r in item.get('references')]
             ) + "</small>"
 
         current_code = escape(str(item.get('vulnerable_code', '')))
@@ -841,7 +968,7 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
     <p><b>Scanner Model:</b> {escape(metadata['scanner_model'])}</p>
     <p><b>Analysis Engine:</b> {escape(metadata['analysis_engine'])}</p>
     <p><b>Detected Languages:</b> {escape(', '.join(metadata['detected_languages']))}</p>
-    
+
     <h2>Executive Summary</h2>
     <p><b>Total Vulnerabilities Identified:</b> {len(findings)}</p>
     <table class="summary-table">
@@ -879,9 +1006,11 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
 
     with open(output_html_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
+
     validate_report_output("html", output_html_path, findings, metadata)
     print(f"[+] HTML report generated: {output_html_path}")
     return output_html_path
+
 
 def generate_sarif_report(findings, metadata, output_sarif_path="sast_report.sarif"):
     """Generates SARIF format report for IDE and CI/CD ingestion."""
@@ -928,9 +1057,11 @@ def generate_sarif_report(findings, metadata, output_sarif_path="sast_report.sar
 
     with open(output_sarif_path, 'w', encoding='utf-8') as f:
         json.dump(sarif_data, f, indent=2)
+
     validate_report_output("sarif", output_sarif_path, findings, metadata)
     print(f"[+] SARIF report generated: {output_sarif_path}")
     return output_sarif_path
+
 
 def main():
     parser = argparse.ArgumentParser(description="Cross-Platform Agentic SAST Engine")
@@ -965,7 +1096,7 @@ def main():
         findings_model = None
         if args.findings_input:
             try:
-                findings = load_agent_findings(findings_path)
+                findings = load_agent_findings(findings_path, target_dir)
             except FileNotFoundError as error:
                 raise SystemExit(f"[-] Error: {error}") from None
             else:
@@ -975,6 +1106,7 @@ def main():
             if args.scanner_model:
                 print("[!] No agent findings supplied; ignoring --scanner-model and using deterministic analysis.")
             findings = load_or_scan_checkpoint(target_dir)
+
         metadata = build_report_metadata(target_dir, findings_model, args.scanner_model)
         print(f"[+] Active vulnerability findings loaded: {len(findings)}")
         print(f"[+] Scanner model: {metadata['scanner_model']}")
@@ -1009,14 +1141,14 @@ def main():
                 f.write("## Detailed Findings\n")
                 for item in findings:
                     f.write(f"### {item.get('title')} ({item.get('severity')})\n")
-                    f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}-{item.get('end_line')}`\n")
+                    f.write(f"- Location: `{item.get('file_path')}`:{item.get('start_line')}-{item.get('end_line')}\n")
                     f.write(f"- CWE: {item.get('cwe_id')}\n\n")
                     f.write("**Focused Vulnerable Code:**\n\n")
-                    f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(str(item.get('vulnerable_code', '')))}</pre>\n\n")
+                    f.write(f'<pre style="white-space: pre-wrap; overflow-wrap: anywhere;">{escape(str(item.get("vulnerable_code", "")))}</pre>\n\n')
                     f.write("**Copy/Paste Fix:**\n\n")
-                    f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(get_recommended_fix(item))}</pre>\n\n")
-            validate_report_output("markdown", out_name, findings, metadata)
-            print(f"[+] Primary report generated: {out_name}")
+                    f.write(f'<pre style="white-space: pre-wrap; overflow-wrap: anywhere;">{escape(get_recommended_fix(item))}</pre>\n\n')
+                validate_report_output("markdown", out_name, findings, metadata)
+                print(f"[+] Primary report generated: {out_name}")
 
         generate_pdf_report(findings, metadata, "sast_security_report.pdf")
         if args.debug:
@@ -1027,15 +1159,16 @@ def main():
                 if report_path.exists():
                     report_path.unlink()
                     print("[+] Scan completed successfully; deleted sast_report.json")
-        if args.debug:
-            print("[+] Debug mode enabled; keeping sast_checkpoint.json")
-        else:
-            cleanup_checkpoint(target_dir)
-            print("[+] Scan completed successfully; deleted sast_checkpoint.json")
+            if args.debug:
+                print("[+] Debug mode enabled; keeping sast_checkpoint.json")
+            else:
+                cleanup_checkpoint(target_dir)
+                print("[+] Scan completed successfully; deleted sast_checkpoint.json")
     finally:
         if temporary_dir:
             shutil.rmtree(temporary_dir, ignore_errors=True)
             print("[+] Removed temporary remote repository copy")
+
 
 if __name__ == "__main__":
     main()
