@@ -171,20 +171,20 @@ The official VS Code extension is `github.copilot-chat`. A GitHub Copilot
 Free plan can be used only after signing in with an eligible GitHub account;
 the renderer cannot inspect your private account or entitlement.
 
-Install the extension in the VS Code environment where the repository is
-open:
+Install **GitHub Copilot Chat** (`github.copilot-chat`) from the VS Code
+Extensions view in the same window where the repository is open. For WSL,
+first run **Remote WSL: Reopen Folder in WSL**. For another remote target,
+reconnect to that target before opening Extensions.
+
+The CLI alternative works only when the VS Code server is connected:
 
 ```Bash
 code --install-extension github.copilot-chat
 ```
 
-For a WSL or remote window, run that command only after the VS Code window is
-connected to the target server. If it reports `Unable to connect to VS Code
-server` or a missing `vscode-ipc-*.sock` file, the server session is stopped
-or stale. Reopen the folder using **Remote WSL: Reopen Folder in WSL** (or
-the applicable remote connection), then install **GitHub Copilot Chat**
-(`github.copilot-chat`) from the Extensions view. This installs it into the
-connected VS Code environment without relying on the stale terminal socket.
+If it reports `Unable to connect to VS Code server` or a missing
+`vscode-ipc-*.sock` file, do not retry the command from the stale terminal.
+Reconnect or reopen the VS Code remote window, then use the Extensions view.
 
 After installation, sign in through the Accounts menu and select the Copilot
 model in the Copilot Chat model picker.
