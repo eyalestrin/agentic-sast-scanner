@@ -235,8 +235,9 @@ def load_agent_findings(findings_path):
     if not findings_file.is_file():
         raise FileNotFoundError(
             f"Agent findings file not found in the skill folder: {findings_file.resolve()}. "
-            "Ask the selected LLM agent to create agent_findings.json first, "
-            "or provide the correct path with --findings-input."
+            "First ask Gemini to scan the repository and create this file using "
+            "the documented schema, then rerun the command. "
+            "The renderer cannot invoke Gemini or create genuine LLM findings itself."
         )
     with open(findings_file, 'r', encoding='utf-8') as handle:
         data = json.load(handle)

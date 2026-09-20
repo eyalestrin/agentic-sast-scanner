@@ -169,6 +169,10 @@ After the agent creates `~/.vscode/skills/agent_findings.json`, run
 the renderer from the directory where reports should be written. A relative
 findings path is not required; use the canonical skill-folder findings path:
 
+The renderer does not invoke Gemini. If this file is missing, ask Gemini to
+scan the repository and create it using the schema above before running the
+following command.
+
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \
