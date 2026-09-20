@@ -42,6 +42,11 @@ REPORT_FILES = {
     "sast_security_report.pdf",
 }
 SCANNER_MODEL = "No LLM model used; deterministic heuristic SAST rules"
+SUPPORTED_LLM_INTEGRATIONS = (
+    ("GitHub Copilot", "Select the active Copilot model in VS Code; pass its exact displayed name with --scanner-model."),
+    ("Google Gemini", "Select the active Gemini model in Gemini Code Assist; pass its exact displayed name with --scanner-model."),
+    ("Anthropic Claude", "Select the active Claude model in the Claude extension or CLI; pass its exact displayed name with --scanner-model."),
+)
 
 SEVERITY_ORDER = {
     "CRITICAL": 0,
@@ -236,6 +241,15 @@ def load_agent_findings(findings_path):
     if not isinstance(findings, list):
         raise ValueError("Agent findings input must contain a findings list.")
     return sort_findings([compact_finding_code(dict(item)) for item in findings])
+
+
+def print_supported_models():
+    """Prints supported external-agent integrations and their invocation boundary."""
+    print("Supported LLM agent integrations:")
+    for provider, instruction in SUPPORTED_LLM_INTEGRATIONS:
+        print(f"- {provider}: {instruction}")
+    print("- Deterministic fallback: No LLM model used; deterministic heuristic SAST rules")
+    print("The Python scanner renders agent findings but does not select or invoke external LLMs.")
 
 
 def finding_report_data(finding):
@@ -792,6 +806,7 @@ def generate_sarif_report(findings, metadata, output_sarif_path="sast_report.sar
 def main():
     parser = argparse.ArgumentParser(description="Cross-Platform Agentic SAST Engine")
     parser.add_argument("--format", choices=["markdown", "sarif", "json", "html"], default="html")
+    parser.add_argument("--list-models", action="store_true", help="List supported LLM agent integrations and exit")
     target_group = parser.add_mutually_exclusive_group()
     target_group.add_argument("--dir", default=".", help="Local directory to scan")
     target_group.add_argument("--repo", help="Remote Git repository URL to scan temporarily")
@@ -800,6 +815,10 @@ def main():
     parser.add_argument("--findings-input", help="JSON findings file produced by Copilot, Gemini, Claude, or another agent")
     parser.add_argument("--scanner-model", help="Exact model name used to produce --findings-input")
     args = parser.parse_args()
+
+    if args.list_models:
+        print_supported_models()
+        return
 
     if args.findings_input and not args.scanner_model:
         parser.error("--scanner-model is required when --findings-input is used")

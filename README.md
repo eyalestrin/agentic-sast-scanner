@@ -97,7 +97,26 @@ python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html --d
 
 ### Agent-driven scanning with Copilot, Gemini, or Claude
 
-The Python engine cannot call the active VS Code model directly. Ask the active agent (Copilot, Gemini, or Claude) to inspect the repository and write an `agent_findings.json` file using this structure:
+You do not need to write `agent_findings.json` manually. Ask the active VS Code agent to inspect the repository, create the file, and run the renderer. The Python engine cannot call or switch the active VS Code model directly; `--scanner-model` records which model performed the agent scan.
+
+To see the currently supported agent integrations:
+
+```Bash
+python3 ~/.vscode/skills/sast_engine.py --list-models
+```
+
+This lists GitHub Copilot, Google Gemini, and Anthropic Claude integrations, plus the deterministic fallback. The active model is selected in the corresponding VS Code extension or CLI, not by the Python renderer.
+
+Use this prompt in Copilot Chat, Gemini Code Assist, or Claude Code/your Claude VS Code extension:
+
+```text
+Use the Agentic SAST Scanner skill. Scan this repository semantically for vulnerabilities. Create agent_findings.json in the current folder using the schema in the skill README, include only focused vulnerable lines, and provide an exact copy/paste recommended_replacement for every finding. Then run:
+python3 ~/.vscode/skills/sast_engine.py --dir . --findings-input agent_findings.json --scanner-model "<EXACT MODEL NAME>" --format html
+```
+
+Replace `<EXACT MODEL NAME>` with the model selected in the agent extension, for example `GPT-5.2-Copilot`, `Gemini 2.5 Pro`, or `Claude Sonnet 4`.
+
+The findings file must use this structure:
 
 ```json
 {
@@ -119,7 +138,7 @@ The Python engine cannot call the active VS Code model directly. Ask the active 
 }
 ```
 
-Then render the agent findings and record the exact model name in every report:
+The agent then renders the findings and records the exact model name in every report:
 
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py \
@@ -129,7 +148,20 @@ python3 ~/.vscode/skills/sast_engine.py \
   --format html
 ```
 
-The same command works with Gemini or Claude by changing `--scanner-model`, for example `"Gemini 2.5 Pro"` or `"Claude Sonnet 4"`. The engine validates and formats the agent findings; it does not silently claim that the deterministic rules used the external model.
+The same command works with Gemini or Claude by changing `--scanner-model`. The engine validates and formats the agent findings; it does not silently claim that the deterministic rules used the external model.
+
+To run with a specific selected model, first select that model in the agent extension, ask it to create `agent_findings.json`, and then pass the exact displayed model name:
+
+```Bash
+# Example: the active Copilot model is GPT-5.2-Copilot
+python3 ~/.vscode/skills/sast_engine.py \
+  --dir . \
+  --findings-input agent_findings.json \
+  --scanner-model "GPT-5.2-Copilot" \
+  --format html
+```
+
+For Gemini or Claude, use the same command with the exact selected model name, such as `"Gemini 2.5 Pro"` or `"Claude Sonnet 4"`.
 
 ### Scan a remote Git repository without a persistent local checkout
 
