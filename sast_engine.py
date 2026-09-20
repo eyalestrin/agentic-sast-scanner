@@ -190,6 +190,8 @@ LANGUAGE_FIXES = {
 
 def get_recommended_fix(finding):
     """Returns a concrete copy-paste replacement line for a finding's CWE."""
+    if finding.get("recommended_replacement"):
+        return str(finding["recommended_replacement"])
     extension = Path(str(finding.get("file_path", ""))).suffix.lower()
     language = SUPPORTED_EXTENSIONS.get(extension)
     if language in LANGUAGE_FIXES and finding.get("cwe_id") in LANGUAGE_FIXES[language]:
@@ -212,13 +214,28 @@ def detect_languages(target_dir):
     return sorted(languages)
 
 
-def build_report_metadata(target_dir):
+def build_report_metadata(target_dir, scanner_model=None):
     """Builds metadata that must appear in every report format."""
     languages = detect_languages(target_dir)
     return {
-        "scanner_model": SCANNER_MODEL,
+        "scanner_model": scanner_model or SCANNER_MODEL,
         "detected_languages": languages or ["None detected"],
     }
+
+
+def load_agent_findings(findings_path):
+    """Loads findings produced by Copilot, Gemini, Claude, or another external agent."""
+    with open(findings_path, 'r', encoding='utf-8') as handle:
+        data = json.load(handle)
+    if isinstance(data, dict) and "findings" in data:
+        findings = data["findings"]
+    elif isinstance(data, list):
+        findings = data
+    else:
+        raise ValueError("Agent findings input must be a list or an object with a findings list.")
+    if not isinstance(findings, list):
+        raise ValueError("Agent findings input must contain a findings list.")
+    return sort_findings([compact_finding_code(dict(item)) for item in findings])
 
 
 def finding_report_data(finding):
@@ -780,7 +797,12 @@ def main():
     target_group.add_argument("--repo", help="Remote Git repository URL to scan temporarily")
     parser.add_argument("--ref", help="Branch, tag, or commit ref for --repo")
     parser.add_argument("--debug", action="store_true", help="Keep sast_report.json after a successful scan")
+    parser.add_argument("--findings-input", help="JSON findings file produced by Copilot, Gemini, Claude, or another agent")
+    parser.add_argument("--scanner-model", help="Exact model name used to produce --findings-input")
     args = parser.parse_args()
+
+    if args.findings_input and not args.scanner_model:
+        parser.error("--scanner-model is required when --findings-input is used")
 
     cleanup_previous_reports()
     target_dir, temporary_dir = prepare_scan_target(args.repo, args.ref, args.dir)
@@ -788,8 +810,12 @@ def main():
         cleanup_checkpoint(target_dir)
         print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
 
-        findings = load_or_scan_checkpoint(target_dir)
-        metadata = build_report_metadata(target_dir)
+        if args.findings_input:
+            findings = load_agent_findings(args.findings_input)
+            print(f"[+] Loaded agent findings from: {args.findings_input}")
+        else:
+            findings = load_or_scan_checkpoint(target_dir)
+        metadata = build_report_metadata(target_dir, args.scanner_model)
         print(f"[+] Active vulnerability findings loaded: {len(findings)}")
         print(f"[+] Scanner model: {metadata['scanner_model']}")
         print(f"[+] Detected languages: {', '.join(metadata['detected_languages'])}")

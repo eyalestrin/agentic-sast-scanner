@@ -10,6 +10,8 @@ The generated reports must state the exact scanner model. This implementation us
 `No LLM model used; deterministic heuristic SAST rules`
 Reports must also state every programming language detected from the scanned source files.
 
+When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must write findings using the documented JSON schema and invoke the renderer with `--findings-input` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values.
+
 ## STAGE 2: EXECUTION & CHUNKING AGENTIC PROTOCOL
 - Walk the project folder recursively.
 - Filter out binary assets, dependency directories (`node_modules`, `vendor`, `.git`, `venv`, `target`, `bin`), and lockfiles.

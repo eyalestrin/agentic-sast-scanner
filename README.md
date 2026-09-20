@@ -95,6 +95,42 @@ The engine removes previous report files and the target's `sast_checkpoint.json`
 python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html --debug
 ```
 
+### Agent-driven scanning with Copilot, Gemini, or Claude
+
+The Python engine cannot call the active VS Code model directly. Ask the active agent (Copilot, Gemini, or Claude) to inspect the repository and write an `agent_findings.json` file using this structure:
+
+```json
+{
+  "findings": [
+    {
+      "title": "SQL injection",
+      "cwe_id": "CWE-89",
+      "owasp_category": "A03:2021-Injection",
+      "severity": "HIGH",
+      "file_path": "src/Repository.java",
+      "start_line": 42,
+      "end_line": 42,
+      "vulnerable_code": "query = \"SELECT ... \" + userValue;",
+      "remediation": "Use a parameterized query.",
+      "recommended_replacement": "PreparedStatement statement = connection.prepareStatement(\"SELECT ... WHERE id = ?\"); statement.setString(1, userValue);",
+      "references": ["https://cwe.mitre.org/data/definitions/89.html"]
+    }
+  ]
+}
+```
+
+Then render the agent findings and record the exact model name in every report:
+
+```Bash
+python3 ~/.vscode/skills/sast_engine.py \
+  --dir /path/to/project \
+  --findings-input agent_findings.json \
+  --scanner-model "GPT-5.2-Copilot" \
+  --format html
+```
+
+The same command works with Gemini or Claude by changing `--scanner-model`, for example `"Gemini 2.5 Pro"` or `"Claude Sonnet 4"`. The engine validates and formats the agent findings; it does not silently claim that the deterministic rules used the external model.
+
 ### Scan a remote Git repository without a persistent local checkout
 
 Pass a remote repository URL with `--repo`. The engine creates a temporary shallow clone only for the scan, writes reports including the optional debug JSON to the current folder, and removes the temporary clone when finished:
