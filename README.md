@@ -79,7 +79,7 @@ If the `.vscode/skills` folder does not exist in your current target project, yo
      ```Bash  
       python3 ~/.vscode/skills/sast_engine.py --format html
      ```
-4. The engine will run, process all code files in subfolders in 400-line blocks, update `sast_checkpoint.json`, produce your requested format file (`sast_report.html` or `sast_report.sarif`), and generate `sast_security_report.pdf`.  
+4. Before scanning, the engine removes previous report files. It processes all code files in subfolders in 400-line blocks, updates `sast_checkpoint.json`, produces only your requested format, and always generates `sast_security_report.pdf`.  
 
 ### Local scan with automatic JSON cleanup
 
@@ -89,7 +89,7 @@ Run the scanner from the folder where you want the reports to be written:
 python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html
 ```
 
-The engine removes any existing `sast_report.json` before scanning. It creates and validates that JSON report as an intermediate artifact, then deletes it after all reports complete successfully. Use `--debug` to keep the JSON report in the current folder:
+The engine removes previous report files before scanning and generates only the requested report plus the mandatory PDF. JSON is deleted after a successful JSON run. Use `--debug` to retain `sast_report.json` for troubleshooting:
 
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html --debug

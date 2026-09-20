@@ -34,6 +34,13 @@ SUPPORTED_EXTENSIONS = {
 EXCLUDED_DIRS = {'.git', 'node_modules', 'venv', '.venv', 'target', 'bin', 'obj', '__pycache__'}
 CHECKPOINT_FILE = "sast_checkpoint.json"
 JSON_REPORT_FILE = "sast_report.json"
+REPORT_FILES = {
+    "sast_report.html",
+    "sast_report.md",
+    "sast_report.sarif",
+    "sast_report.json",
+    "sast_security_report.pdf",
+}
 SCANNER_MODEL = "No LLM model used; deterministic heuristic SAST rules"
 
 SEVERITY_ORDER = {
@@ -200,12 +207,47 @@ def finding_report_data(finding):
     }
 
 
-def remove_json_report():
-    """Removes a previous JSON report before a new scan starts."""
-    report_path = Path.cwd() / JSON_REPORT_FILE
-    if report_path.exists():
-        report_path.unlink()
-        print(f"[+] Removed previous JSON report: {report_path}")
+def cleanup_previous_reports():
+    """Removes all report artifacts before a new scan starts."""
+    for report_name in REPORT_FILES:
+        report_path = Path.cwd() / report_name
+        if report_path.exists():
+            report_path.unlink()
+            print(f"[+] Removed previous report: {report_path}")
+
+
+def compact_vulnerable_code(code, rule_pattern=None, max_length=1200):
+    """Keeps a focused matching region when a source line is unusually large."""
+    code = str(code or "").strip()
+    if len(code) <= max_length:
+        return code
+
+    match = re.search(rule_pattern, code, re.IGNORECASE) if rule_pattern else None
+    if match:
+        context = 240
+        start = max(0, match.start() - context)
+        if match.end() - match.start() > context:
+            end = min(len(code), match.start() + context)
+        else:
+            end = min(len(code), match.end() + context)
+        snippet = code[start:end]
+        prefix = "..." if start else ""
+        suffix = "..." if end < len(code) else ""
+        return f"{prefix}{snippet}{suffix}"
+    return f"{code[:max_length]}..."
+
+
+def compact_finding_code(finding):
+    """Compacts a finding using the matching rule while preserving its source location."""
+    matched_rule = None
+    for rule in STATIC_HEURISTIC_RULES:
+        if rule["title"] == finding.get("title"):
+            matched_rule = rule
+            break
+    finding["vulnerable_code"] = compact_vulnerable_code(
+        finding.get("vulnerable_code"), matched_rule["pattern"] if matched_rule else None
+    )
+    return finding
 
 
 def prepare_scan_target(repo_url=None, ref=None, target_dir=None):
@@ -269,6 +311,9 @@ def validate_findings(findings):
 
         if not isinstance(item.get("references", []), list):
             raise ValueError(f"Finding #{index} references must be a list.")
+
+        if len(str(item.get("vulnerable_code", ""))) > 1200:
+            raise ValueError(f"Finding #{index} contains an oversized vulnerable-code snippet.")
 
     return True
 
@@ -367,7 +412,7 @@ def analyze_line_heuristics(line, line_num, file_path):
                 "file_path": file_path,
                 "start_line": line_num,
                 "end_line": line_num,
-                "vulnerable_code": line.strip(),
+                "vulnerable_code": compact_vulnerable_code(line, rule["pattern"]),
                 "remediation": rule["remediation"],
                 "references": rule["references"]
             })
@@ -393,7 +438,7 @@ def load_or_scan_checkpoint(target_dir):
                 ]
 
                 if valid_findings:
-                    return sort_findings(valid_findings)
+                    return sort_findings([compact_finding_code(item) for item in valid_findings])
                 else:
                     print("[-] Found checkpoint file, but it contains raw chunk metadata instead of vulnerability findings. Running fallback scan...")
         except Exception as e:
@@ -701,7 +746,7 @@ def main():
     parser.add_argument("--debug", action="store_true", help="Keep sast_report.json after a successful scan")
     args = parser.parse_args()
 
-    remove_json_report()
+    cleanup_previous_reports()
     target_dir, temporary_dir = prepare_scan_target(args.repo, args.ref, args.dir)
     try:
         print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
@@ -712,8 +757,9 @@ def main():
         print(f"[+] Scanner model: {metadata['scanner_model']}")
         print(f"[+] Detected languages: {', '.join(metadata['detected_languages'])}")
 
-        write_json_report(findings, metadata)
-        print("[+] Validated JSON report generated: sast_report.json")
+        if args.format == "json" or args.debug:
+            write_json_report(findings, metadata)
+            print("[+] Validated JSON report generated: sast_report.json")
 
         if args.format == "html":
             generate_html_report(findings, metadata, "sast_report.html")
@@ -750,8 +796,11 @@ def main():
         if args.debug:
             print("[+] Debug mode enabled; keeping sast_report.json")
         else:
-            remove_json_report()
-            print("[+] Scan completed successfully; deleted sast_report.json")
+            if args.format == "json":
+                report_path = Path.cwd() / JSON_REPORT_FILE
+                if report_path.exists():
+                    report_path.unlink()
+                    print("[+] Scan completed successfully; deleted sast_report.json")
     finally:
         if temporary_dir:
             shutil.rmtree(temporary_dir, ignore_errors=True)

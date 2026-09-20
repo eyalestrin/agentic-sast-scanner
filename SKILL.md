@@ -36,3 +36,6 @@ For each 400-line block, scan for security weaknesses mapped to official standar
 - Every output format (JSON, SARIF, Markdown, HTML, and PDF) MUST begin with the scanner model and detected programming languages.
 - Every output format MUST include the exact vulnerable code, file path, start/end lines, and recommended replacement for each finding.
 - Markdown, HTML, and PDF output MUST wrap long paths, URLs, code, and remediation text within the available window/page width.
+- Before every scan, the engine MUST delete all previous report files (`sast_report.html`, `sast_report.md`, `sast_report.sarif`, `sast_report.json`, and `sast_security_report.pdf`).
+- The engine MUST generate only the requested output format plus the mandatory PDF. `sast_report.json` may additionally be retained only when debug mode is explicitly enabled.
+- Vulnerable-code output MUST contain only the focused matched snippet, never the full contents of a vulnerable source file.
