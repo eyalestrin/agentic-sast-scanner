@@ -24,7 +24,7 @@ For each 400-line block, scan for security weaknesses mapped to official standar
 - **Severity Score:** Severity rating (CRITICAL, HIGH, MEDIUM, LOW) along with CVSS v3.1 vector string.
 - **Location:** File path and exact physical line numbers.
 - **Vulnerable Code:** The exact flagged source section and line range.
-- **Remediation:** A concrete recommended replacement or secure code change.
+- **Remediation:** A concrete, language-appropriate copy/paste fix line; do not provide vague instructions such as “replace string”.
 - **References:** Official external URLs (OWASP Cheat Sheets, MITRE CWE, NIST).
 
 ## STAGE 4: OUTPUT ORCHESTRATION
@@ -37,5 +37,7 @@ For each 400-line block, scan for security weaknesses mapped to official standar
 - Every output format MUST include the exact vulnerable code, file path, start/end lines, and recommended replacement for each finding.
 - Markdown, HTML, and PDF output MUST wrap long paths, URLs, code, and remediation text within the available window/page width.
 - Before every scan, the engine MUST delete all previous report files (`sast_report.html`, `sast_report.md`, `sast_report.sarif`, `sast_report.json`, and `sast_security_report.pdf`).
+- Before every scan, the engine MUST delete the target directory's `sast_checkpoint.json`; after successful completion it MUST delete that checkpoint unless debug mode is enabled.
 - The engine MUST generate only the requested output format plus the mandatory PDF. `sast_report.json` may additionally be retained only when debug mode is explicitly enabled.
 - Vulnerable-code output MUST contain only the focused matched snippet, never the full contents of a vulnerable source file.
+- Each finding MUST include a language-appropriate copy/paste fix line that directly addresses the flagged operation.

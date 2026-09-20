@@ -157,21 +157,46 @@ def get_severity_counts(findings):
 
 
 RECOMMENDED_FIXES = {
-    "CWE-78": "Replace shell execution with an argument array and disable shell interpretation, for example: subprocess.run([command, argument], shell=False, check=True).",
-    "CWE-89": "Replace string-built SQL with a prepared statement, for example: connection.prepareStatement(\"SELECT ... WHERE id = ?\").setString(1, userValue).",
-    "CWE-918": "Replace unrestricted requests with an allowlisted destination and reject private or link-local IP ranges before making the request.",
-    "CWE-22": "Replace direct user-controlled file access with canonicalization and boundary checks, for example: safePath = Path.of(baseDir, userPath).toRealPath(); require safePath.startsWith(baseDir.toRealPath()).",
-    "CWE-532": "Replace sensitive logging with masked values, for example: logger.info(\"Request for key={}\", mask(secretKey)).",
-    "CWE-352": "Replace the disabled CSRF configuration with enabled protection, for example: http.csrf(csrf -> csrf.csrfTokenRepository(tokenRepository)).",
-    "CWE-396": "Replace the generic catch with the narrow exception types the operation can recover from, for example: catch (IOException e) { handleInputError(e); }.",
+    "CWE-78": "subprocess.run([command, argument], shell=False, check=True)",
+    "CWE-89": "prepared_statement = connection.prepareStatement(\"SELECT column FROM table WHERE id = ?\"); prepared_statement.setString(1, user_value)",
+    "CWE-918": "allowed_url = validate_against_allowlist(request_url); response = requests.get(allowed_url, timeout=5)",
+    "CWE-22": "safe_path = Path(base_dir, user_path).resolve(); assert safe_path.is_relative_to(Path(base_dir).resolve())",
+    "CWE-532": "logger.info(\"Request for key=%s\", mask_secret(secret_key))",
+    "CWE-352": "http.csrf(csrf -> csrf.csrfTokenRepository(tokenRepository))",
+    "CWE-396": "except (IOException error): handle_input_error(error)",
+}
+
+LANGUAGE_FIXES = {
+    "JavaScript": {
+        "CWE-78": "execFile(command, [argument], { shell: false }, callback);",
+        "CWE-89": "const statement = db.prepare('SELECT column FROM table WHERE id = ?'); statement.get(userValue);",
+        "CWE-918": "const response = await fetch(allowlistedUrl, { signal: AbortSignal.timeout(5000) });",
+        "CWE-22": "const safePath = path.resolve(baseDir, userPath); if (!safePath.startsWith(path.resolve(baseDir) + path.sep)) throw new Error('Invalid path');",
+        "CWE-532": "logger.info('Request for key=%s', maskSecret(secretKey));",
+        "CWE-352": "app.use(csrf({ cookie: { httpOnly: true, sameSite: 'strict' } }));",
+        "CWE-396": "catch (error) { handleInputError(error); }",
+    },
+    "Java": {
+        "CWE-78": "new ProcessBuilder(command, argument).start();",
+        "CWE-89": "PreparedStatement statement = connection.prepareStatement(\"SELECT column FROM table WHERE id = ?\"); statement.setString(1, userValue);",
+        "CWE-918": "URI allowedUri = validateAgainstAllowlist(requestUri);",
+        "CWE-22": "Path safePath = Path.of(baseDir, userPath).toRealPath(); if (!safePath.startsWith(Path.of(baseDir).toRealPath())) throw new SecurityException();",
+        "CWE-532": "logger.info(\"Request for key={}\", maskSecret(secretKey));",
+        "CWE-352": "http.csrf(csrf -> csrf.csrfTokenRepository(tokenRepository));",
+        "CWE-396": "catch (IOException error) { handleInputError(error); }",
+    },
 }
 
 
 def get_recommended_fix(finding):
-    """Returns a concrete replacement direction for a finding's CWE."""
+    """Returns a concrete copy-paste replacement line for a finding's CWE."""
+    extension = Path(str(finding.get("file_path", ""))).suffix.lower()
+    language = SUPPORTED_EXTENSIONS.get(extension)
+    if language in LANGUAGE_FIXES and finding.get("cwe_id") in LANGUAGE_FIXES[language]:
+        return LANGUAGE_FIXES[language][finding["cwe_id"]]
     return RECOMMENDED_FIXES.get(
         finding.get("cwe_id"),
-        "Replace the flagged operation with an implementation that validates untrusted input and enforces the documented security boundary."
+        "secure_value = validate_untrusted_input(raw_value)"
     )
 
 
@@ -214,6 +239,14 @@ def cleanup_previous_reports():
         if report_path.exists():
             report_path.unlink()
             print(f"[+] Removed previous report: {report_path}")
+
+
+def cleanup_checkpoint(target_dir):
+    """Removes the scan checkpoint from the target directory."""
+    checkpoint_path = Path(target_dir) / CHECKPOINT_FILE
+    if checkpoint_path.exists():
+        checkpoint_path.unlink()
+        print(f"[+] Removed scan checkpoint: {checkpoint_path}")
 
 
 def compact_vulnerable_code(code, rule_pattern=None, max_length=1200):
@@ -361,7 +394,9 @@ def validate_report_output(report_type, output_path, findings, metadata):
 
     elif report_type == "html":
         content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
-        required_tokens = ["Static Application Security Testing (SAST) Audit Report", "Executive Summary", "Detailed Security Findings", f"Total Vulnerabilities Identified:</b> {len(findings)}", escape(expected_model), "Detected Languages", "Current Code (replace):", "Recommended Replacement:"]
+        required_tokens = ["Static Application Security Testing (SAST) Audit Report", "Executive Summary", "Detailed Security Findings", f"Total Vulnerabilities Identified:</b> {len(findings)}", escape(expected_model), "Detected Languages"]
+        if findings:
+            required_tokens.extend(["Focused Vulnerable Code:", "Copy/Paste Fix:"])
         required_tokens.extend(escape(language) for language in expected_languages)
         for token in required_tokens:
             if token not in content:
@@ -369,7 +404,7 @@ def validate_report_output(report_type, output_path, findings, metadata):
         rendered_rows = content.count('<tr class="finding-row">')
         if rendered_rows != len(findings):
             raise ValueError(f"HTML report mismatch: expected {len(findings)} finding rows, found {rendered_rows}")
-        if content.count("Current Code (replace):") != len(findings) or content.count("Recommended Replacement:") != len(findings):
+        if content.count("Focused Vulnerable Code:") != len(findings) or content.count("Copy/Paste Fix:") != len(findings):
             raise ValueError("HTML report is missing exact code or replacement details.")
         for severity, total in counts.items():
             if f'{severity}</span></td><td><b>{total}</b>' not in content and f'{severity}</b></font>' not in content:
@@ -379,12 +414,13 @@ def validate_report_output(report_type, output_path, findings, metadata):
         content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
         required_tokens = ["# SAST Audit Summary", f"Scanner Model: **{expected_model}**", "Detected Languages:"]
         required_tokens.extend(f"- {language}" for language in expected_languages)
-        required_tokens.extend(["Current Code (replace):", "Recommended Replacement:"])
+        if findings:
+            required_tokens.extend(["Focused Vulnerable Code:", "Copy/Paste Fix:"])
         if any(token not in content for token in required_tokens):
             raise ValueError("Markdown report is missing the summary header.")
         if f"Total Vulnerabilities Identified: **{len(findings)}**" not in content:
             raise ValueError(f"Markdown report mismatch: expected {len(findings)} findings")
-        if content.count("Current Code (replace):") != len(findings) or content.count("Recommended Replacement:") != len(findings):
+        if content.count("Focused Vulnerable Code:") != len(findings) or content.count("Copy/Paste Fix:") != len(findings):
             raise ValueError("Markdown report is missing exact code or replacement details.")
 
     elif report_type == "pdf":
@@ -552,11 +588,11 @@ def generate_pdf_report(findings, metadata, output_pdf_path="sast_security_repor
             story.append(t)
             story.append(Spacer(1, 8))
 
-            story.append(Paragraph("<b>Vulnerable Code Snippet:</b>", styles['Normal']))
+            story.append(Paragraph("<b>Focused Vulnerable Code:</b>", styles['Normal']))
             story.append(Paragraph(escape(str(item.get('vulnerable_code', 'N/A'))), wrapped_code_style))
             story.append(Spacer(1, 6))
 
-            story.append(Paragraph("<b>Recommended Replacement:</b>", styles['Normal']))
+            story.append(Paragraph("<b>Copy/Paste Fix:</b>", styles['Normal']))
             story.append(Paragraph(escape(get_recommended_fix(item)), wrapped_code_style))
             story.append(Spacer(1, 6))
 
@@ -603,9 +639,9 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
             <td><b>{escape(str(item.get('title', '')))}</b><br/><small>{escape(str(item.get('cwe_id', '')))} | {escape(str(item.get('owasp_category', '')))}</small></td>
             <td><code>{escape(str(item.get('file_path', '')))}:{escape(str(item.get('start_line', '')))}-{escape(str(item.get('end_line', '')))}</code></td>
             <td>
-                <b>Current Code (replace):</b>
+                <b>Focused Vulnerable Code:</b>
                 <pre><code>{current_code}</code></pre>
-                <b>Recommended Replacement:</b>
+                <b>Copy/Paste Fix:</b>
                 <pre><code>{recommended_fix}</code></pre>
             </td>
             <td><b>Remediation:</b> {escape(str(item.get('remediation', '')))}{refs_html}</td>
@@ -670,7 +706,7 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
                 <th>Severity</th>
                 <th>Vulnerability & Taxonomy</th>
                 <th>Location</th>
-                <th>Current Code & Recommended Replacement</th>
+                <th>Focused Vulnerable Code & Copy/Paste Fix</th>
                 <th>Remediation & OWASP References</th>
             </tr>
         </thead>
@@ -749,6 +785,7 @@ def main():
     cleanup_previous_reports()
     target_dir, temporary_dir = prepare_scan_target(args.repo, args.ref, args.dir)
     try:
+        cleanup_checkpoint(target_dir)
         print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
 
         findings = load_or_scan_checkpoint(target_dir)
@@ -785,9 +822,9 @@ def main():
                     f.write(f"### {item.get('title')} ({item.get('severity')})\n")
                     f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}-{item.get('end_line')}`\n")
                     f.write(f"- CWE: {item.get('cwe_id')}\n\n")
-                    f.write("**Current Code (replace):**\n\n")
+                    f.write("**Focused Vulnerable Code:**\n\n")
                     f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(str(item.get('vulnerable_code', '')))}</pre>\n\n")
-                    f.write("**Recommended Replacement:**\n\n")
+                    f.write("**Copy/Paste Fix:**\n\n")
                     f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(get_recommended_fix(item))}</pre>\n\n")
             validate_report_output("markdown", out_name, findings, metadata)
             print(f"[+] Primary report generated: {out_name}")
@@ -801,6 +838,11 @@ def main():
                 if report_path.exists():
                     report_path.unlink()
                     print("[+] Scan completed successfully; deleted sast_report.json")
+        if args.debug:
+            print("[+] Debug mode enabled; keeping sast_checkpoint.json")
+        else:
+            cleanup_checkpoint(target_dir)
+            print("[+] Scan completed successfully; deleted sast_checkpoint.json")
     finally:
         if temporary_dir:
             shutil.rmtree(temporary_dir, ignore_errors=True)

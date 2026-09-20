@@ -89,7 +89,7 @@ Run the scanner from the folder where you want the reports to be written:
 python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html
 ```
 
-The engine removes previous report files before scanning and generates only the requested report plus the mandatory PDF. JSON is deleted after a successful JSON run. Use `--debug` to retain `sast_report.json` for troubleshooting:
+The engine removes previous report files and the target's `sast_checkpoint.json` before scanning, then generates only the requested report plus the mandatory PDF. JSON and the checkpoint are deleted after a successful run. Use `--debug` to retain both for troubleshooting:
 
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html --debug
@@ -129,7 +129,7 @@ Once execution completes, the following files will be created in your project ro
 | :--- | :--- | :--- |
 | `sast_report.<ext>` | Primary requested report (`.md`, `.sarif`, `.json`, or `.html`). | CI/CD Pipelines, GitHub Security Tab, IDE Inline Annotations. |
 | `sast_security_report.pdf` | **Mandatory PDF Report** containing formatted vulnerability tables, vulnerable code snippets, fix diffs, and external references. | Security Lead, C-Level Management, Compliance Auditors. |
-| `sast_checkpoint.json` | Execution state tracker managing analyzed code chunks. | System / Internal Skill Engine. |
+| `sast_checkpoint.json` | Temporary execution state tracker; deleted after successful runs unless `--debug` is used. | Debugging and verification. |
 | `sast_report.json` | Validated intermediate/debug report; deleted after successful runs unless `--debug` is used. | Debugging and verification. |
 
 ---
