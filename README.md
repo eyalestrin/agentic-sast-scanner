@@ -178,9 +178,16 @@ open:
 code --install-extension github.copilot-chat
 ```
 
-Or install **GitHub Copilot Chat** (`github.copilot-chat`) from the VS Code
-Extensions view. Then sign in through the Accounts menu and select the
-Copilot model in the Copilot Chat model picker.
+For a WSL or remote window, run that command only after the VS Code window is
+connected to the target server. If it reports `Unable to connect to VS Code
+server` or a missing `vscode-ipc-*.sock` file, the server session is stopped
+or stale. Reopen the folder using **Remote WSL: Reopen Folder in WSL** (or
+the applicable remote connection), then install **GitHub Copilot Chat**
+(`github.copilot-chat`) from the Extensions view. This installs it into the
+connected VS Code environment without relying on the stale terminal socket.
+
+After installation, sign in through the Accounts menu and select the Copilot
+model in the Copilot Chat model picker.
 
 Verify the extension version in the same VS Code environment:
 
