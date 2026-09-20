@@ -32,6 +32,8 @@ stop; it must not label deterministic fallback findings as LLM findings.
 `agent_findings.json` is a per-scan artifact, not a permanent required skill
 file. Deterministic scans do not need it, and agents must regenerate it when
 the repository or selected model changes. Do not create an empty placeholder.
+The canonical findings path is always `~/.vscode/skills/agent_findings.json`;
+generated reports may be written elsewhere.
 
 ## STAGE 2: EXECUTION & CHUNKING AGENTIC PROTOCOL
 - Walk the project folder recursively.

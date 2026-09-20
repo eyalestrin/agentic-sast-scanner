@@ -237,7 +237,10 @@ def load_agent_findings(findings_path):
             f"Agent findings file not found in the skill folder: {findings_file.resolve()}. "
             "First ask Gemini to scan the repository and create this file using "
             "the documented schema, then rerun the command. "
-            "The renderer cannot invoke Gemini or create genuine LLM findings itself."
+            "The renderer cannot invoke Gemini or create genuine LLM findings itself. "
+            "Example: python3 ~/.vscode/skills/sast_engine.py --dir ~/VulnerableApp "
+            "--findings-input ~/.vscode/skills/agent_findings.json "
+            "--scanner-model gemini-1.0-pro --format html"
         )
     with open(findings_file, 'r', encoding='utf-8') as handle:
         data = json.load(handle)
@@ -337,11 +340,26 @@ def print_supported_models():
 def resolve_findings_path(findings_path, target_dir):
     """Resolves relative findings from the skill directory."""
     requested_path = Path(findings_path).expanduser()
-    if requested_path.is_absolute():
-        return str(requested_path)
     if requested_path.name == AGENT_FINDINGS_FILE.name:
         return str(AGENT_FINDINGS_FILE)
+    if requested_path.is_absolute():
+        return str(requested_path)
     return str(Path(__file__).resolve().parent / requested_path)
+
+
+def validate_agent_findings_path(findings_path, target_dir):
+    """Fails before report cleanup when explicit agent input is unavailable."""
+    resolved_path = Path(resolve_findings_path(findings_path, target_dir))
+    if not resolved_path.is_file():
+        raise SystemExit(
+            f"[-] Error: Agent findings file not found in the skill folder: {resolved_path}. "
+            "Ask Gemini to create it before running the renderer. "
+            "The renderer cannot invoke Gemini or create genuine LLM findings itself. "
+            "Example: python3 ~/.vscode/skills/sast_engine.py --dir ~/VulnerableApp "
+            "--findings-input ~/.vscode/skills/agent_findings.json "
+            "--scanner-model gemini-1.0-pro --format html"
+        )
+    return str(resolved_path)
 
 
 def finding_report_data(finding):
@@ -921,6 +939,10 @@ def main():
     if args.findings_input and not args.scanner_model:
         parser.error("--scanner-model is required when --findings-input is used")
 
+    findings_path = None
+    if args.findings_input:
+        findings_path = validate_agent_findings_path(args.findings_input, args.dir)
+
     cleanup_previous_reports()
     target_dir, temporary_dir = prepare_scan_target(args.repo, args.ref, args.dir)
     try:
@@ -929,7 +951,6 @@ def main():
 
         findings_model = args.scanner_model
         if args.findings_input:
-            findings_path = resolve_findings_path(args.findings_input, target_dir)
             try:
                 findings = load_agent_findings(findings_path)
             except FileNotFoundError as error:

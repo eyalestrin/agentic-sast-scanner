@@ -108,6 +108,11 @@ Do not create an empty placeholder: it would contain no agent findings and
 would not represent a real LLM scan. The file should be regenerated when the
 repository or selected model changes.
 
+Location rule: always save agent findings at
+`~/.vscode/skills/agent_findings.json`. Generated reports are written to the
+current working directory, or the reports directory chosen by the command;
+that is separate from the findings-file location.
+
 To list only detected runtime LLM model names:
 
 ```Bash
