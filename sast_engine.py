@@ -13,6 +13,9 @@ import sys
 import json
 import re
 import argparse
+import shutil
+import subprocess
+import tempfile
 from html import escape
 from pathlib import Path
 
@@ -30,6 +33,7 @@ SUPPORTED_EXTENSIONS = {
 
 EXCLUDED_DIRS = {'.git', 'node_modules', 'venv', '.venv', 'target', 'bin', 'obj', '__pycache__'}
 CHECKPOINT_FILE = "sast_checkpoint.json"
+JSON_REPORT_FILE = "sast_report.json"
 SCANNER_MODEL = "No LLM model used; deterministic heuristic SAST rules"
 
 SEVERITY_ORDER = {
@@ -196,6 +200,47 @@ def finding_report_data(finding):
     }
 
 
+def remove_json_report():
+    """Removes a previous JSON report before a new scan starts."""
+    report_path = Path.cwd() / JSON_REPORT_FILE
+    if report_path.exists():
+        report_path.unlink()
+        print(f"[+] Removed previous JSON report: {report_path}")
+
+
+def prepare_scan_target(repo_url=None, ref=None, target_dir=None):
+    """Returns a scan directory and temporary clone path for an optional remote repository."""
+    if not repo_url:
+        return os.path.abspath(target_dir or "."), None
+
+    temporary_dir = tempfile.mkdtemp(prefix="agentic-sast-")
+    clone_command = ["git", "clone", "--depth", "1", "--filter", "blob:none"]
+    if ref:
+        clone_command.extend(["--branch", ref])
+    clone_command.extend([repo_url, temporary_dir])
+    try:
+        subprocess.run(clone_command, check=True, capture_output=True, text=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        shutil.rmtree(temporary_dir, ignore_errors=True)
+        detail = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
+        raise RuntimeError(f"Unable to scan remote Git repository: {detail}") from error
+
+    print(f"[+] Remote repository cloned temporarily for scanning: {repo_url}")
+    return temporary_dir, temporary_dir
+
+
+def write_json_report(findings, metadata, output_path=JSON_REPORT_FILE):
+    """Writes and validates the JSON report used as the optional debug artifact."""
+    report_findings = []
+    for item in findings:
+        report_item = dict(item)
+        report_item.update(finding_report_data(item))
+        report_findings.append(report_item)
+    with open(output_path, 'w', encoding='utf-8') as handle:
+        json.dump({"metadata": metadata, "findings": report_findings}, handle, indent=2)
+    validate_report_output("json", output_path, findings, metadata)
+
+
 def validate_findings(findings):
     """Validates the structure and required fields of the generated findings list."""
     if not isinstance(findings, list):
@@ -330,9 +375,10 @@ def analyze_line_heuristics(line, line_num, file_path):
 
 def load_or_scan_checkpoint(target_dir):
     """Loads valid vulnerability findings from sast_checkpoint.json or runs fallback scan."""
-    if os.path.exists(CHECKPOINT_FILE):
+    checkpoint_path = Path(target_dir) / CHECKPOINT_FILE
+    if checkpoint_path.exists():
         try:
-            with open(CHECKPOINT_FILE, 'r', encoding='utf-8') as f:
+            with open(checkpoint_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 
                 raw_findings = []
@@ -351,7 +397,7 @@ def load_or_scan_checkpoint(target_dir):
                 else:
                     print("[-] Found checkpoint file, but it contains raw chunk metadata instead of vulnerability findings. Running fallback scan...")
         except Exception as e:
-            print(f"[-] Warning: Failed to parse existing {CHECKPOINT_FILE}: {e}")
+            print(f"[-] Warning: Failed to parse existing {checkpoint_path}: {e}")
 
     print("[+] Executing static heuristic analysis across source files...")
     findings = []
@@ -377,7 +423,7 @@ def load_or_scan_checkpoint(target_dir):
     sorted_findings = sort_findings(findings)
 
     # Persist verified findings checkpoint
-    with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
+    with open(checkpoint_path, 'w', encoding='utf-8') as f:
         json.dump({"chunks": chunks_count, "findings": sorted_findings}, f, indent=2)
 
     return sorted_findings
@@ -648,58 +694,68 @@ def generate_sarif_report(findings, metadata, output_sarif_path="sast_report.sar
 def main():
     parser = argparse.ArgumentParser(description="Cross-Platform Agentic SAST Engine")
     parser.add_argument("--format", choices=["markdown", "sarif", "json", "html"], default="html")
-    parser.add_argument("--dir", default=".")
+    target_group = parser.add_mutually_exclusive_group()
+    target_group.add_argument("--dir", default=".", help="Local directory to scan")
+    target_group.add_argument("--repo", help="Remote Git repository URL to scan temporarily")
+    parser.add_argument("--ref", help="Branch, tag, or commit ref for --repo")
+    parser.add_argument("--debug", action="store_true", help="Keep sast_report.json after a successful scan")
     args = parser.parse_args()
 
-    target_dir = os.path.abspath(args.dir)
-    print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
+    remove_json_report()
+    target_dir, temporary_dir = prepare_scan_target(args.repo, args.ref, args.dir)
+    try:
+        print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
 
-    findings = load_or_scan_checkpoint(target_dir)
-    metadata = build_report_metadata(target_dir)
-    print(f"[+] Active vulnerability findings loaded: {len(findings)}")
-    print(f"[+] Scanner model: {metadata['scanner_model']}")
-    print(f"[+] Detected languages: {', '.join(metadata['detected_languages'])}")
+        findings = load_or_scan_checkpoint(target_dir)
+        metadata = build_report_metadata(target_dir)
+        print(f"[+] Active vulnerability findings loaded: {len(findings)}")
+        print(f"[+] Scanner model: {metadata['scanner_model']}")
+        print(f"[+] Detected languages: {', '.join(metadata['detected_languages'])}")
 
-    if args.format == "html":
-        generate_html_report(findings, metadata, "sast_report.html")
-    elif args.format == "sarif":
-        generate_sarif_report(findings, metadata, "sast_report.sarif")
-    elif args.format == "json":
-        report_findings = []
-        for item in findings:
-            report_item = dict(item)
-            report_item.update(finding_report_data(item))
-            report_findings.append(report_item)
-        with open("sast_report.json", 'w', encoding='utf-8') as f:
-            json.dump({"metadata": metadata, "findings": report_findings}, f, indent=2)
-        validate_report_output("json", "sast_report.json", findings, metadata)
-        print("[+] Primary JSON report generated: sast_report.json")
-    else:
-        out_name = f"sast_report.{'md' if args.format == 'markdown' else args.format}"
-        counts = get_severity_counts(findings)
-        with open(out_name, 'w', encoding='utf-8') as f:
-            f.write("# SAST Audit Summary\n\n")
-            f.write(f"- Scanner Model: **{metadata['scanner_model']}**\n")
-            f.write("- Detected Languages:\n")
-            for language in metadata["detected_languages"]:
-                f.write(f"  - {language}\n")
-            f.write("\n")
-            f.write("## Executive Summary\n")
-            f.write(f"- Total Vulnerabilities Identified: **{len(findings)}**\n")
-            f.write(f"- Critical: {counts['CRITICAL']} | High: {counts['HIGH']} | Medium: {counts['MEDIUM']} | Low: {counts['LOW']}\n\n")
-            f.write("## Detailed Findings\n")
-            for item in findings:
-                f.write(f"### {item.get('title')} ({item.get('severity')})\n")
-                f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}-{item.get('end_line')}`\n")
-                f.write(f"- CWE: {item.get('cwe_id')}\n\n")
-                f.write("**Current Code (replace):**\n\n")
-                f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(str(item.get('vulnerable_code', '')))}</pre>\n\n")
-                f.write("**Recommended Replacement:**\n\n")
-                f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(get_recommended_fix(item))}</pre>\n\n")
-        validate_report_output("markdown", out_name, findings, metadata)
-        print(f"[+] Primary report generated: {out_name}")
+        write_json_report(findings, metadata)
+        print("[+] Validated JSON report generated: sast_report.json")
 
-    generate_pdf_report(findings, metadata, "sast_security_report.pdf")
+        if args.format == "html":
+            generate_html_report(findings, metadata, "sast_report.html")
+        elif args.format == "sarif":
+            generate_sarif_report(findings, metadata, "sast_report.sarif")
+        elif args.format == "json":
+            print("[+] Primary JSON report generated: sast_report.json")
+        else:
+            out_name = f"sast_report.{'md' if args.format == 'markdown' else args.format}"
+            counts = get_severity_counts(findings)
+            with open(out_name, 'w', encoding='utf-8') as f:
+                f.write("# SAST Audit Summary\n\n")
+                f.write(f"- Scanner Model: **{metadata['scanner_model']}**\n")
+                f.write("- Detected Languages:\n")
+                for language in metadata["detected_languages"]:
+                    f.write(f"  - {language}\n")
+                f.write("\n")
+                f.write("## Executive Summary\n")
+                f.write(f"- Total Vulnerabilities Identified: **{len(findings)}**\n")
+                f.write(f"- Critical: {counts['CRITICAL']} | High: {counts['HIGH']} | Medium: {counts['MEDIUM']} | Low: {counts['LOW']}\n\n")
+                f.write("## Detailed Findings\n")
+                for item in findings:
+                    f.write(f"### {item.get('title')} ({item.get('severity')})\n")
+                    f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}-{item.get('end_line')}`\n")
+                    f.write(f"- CWE: {item.get('cwe_id')}\n\n")
+                    f.write("**Current Code (replace):**\n\n")
+                    f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(str(item.get('vulnerable_code', '')))}</pre>\n\n")
+                    f.write("**Recommended Replacement:**\n\n")
+                    f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(get_recommended_fix(item))}</pre>\n\n")
+            validate_report_output("markdown", out_name, findings, metadata)
+            print(f"[+] Primary report generated: {out_name}")
+
+        generate_pdf_report(findings, metadata, "sast_security_report.pdf")
+        if args.debug:
+            print("[+] Debug mode enabled; keeping sast_report.json")
+        else:
+            remove_json_report()
+            print("[+] Scan completed successfully; deleted sast_report.json")
+    finally:
+        if temporary_dir:
+            shutil.rmtree(temporary_dir, ignore_errors=True)
+            print("[+] Removed temporary remote repository copy")
 
 if __name__ == "__main__":
     main()

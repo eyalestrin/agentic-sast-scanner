@@ -81,6 +81,44 @@ If the `.vscode/skills` folder does not exist in your current target project, yo
      ```
 4. The engine will run, process all code files in subfolders in 400-line blocks, update `sast_checkpoint.json`, produce your requested format file (`sast_report.html` or `sast_report.sarif`), and generate `sast_security_report.pdf`.  
 
+### Local scan with automatic JSON cleanup
+
+Run the scanner from the folder where you want the reports to be written:
+
+```Bash
+python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html
+```
+
+The engine removes any existing `sast_report.json` before scanning. It creates and validates that JSON report as an intermediate artifact, then deletes it after all reports complete successfully. Use `--debug` to keep the JSON report in the current folder:
+
+```Bash
+python3 ~/.vscode/skills/sast_engine.py --dir /path/to/project --format html --debug
+```
+
+### Scan a remote Git repository without a persistent local checkout
+
+Pass a remote repository URL with `--repo`. The engine creates a temporary shallow clone only for the scan, writes reports including the optional debug JSON to the current folder, and removes the temporary clone when finished:
+
+```Bash
+cd /path/for/reports
+python3 ~/.vscode/skills/sast_engine.py \
+  --repo https://github.com/organization/project.git \
+  --format html
+```
+
+To scan a branch or tag and retain `sast_report.json` for troubleshooting:
+
+```Bash
+cd /path/for/reports
+python3 ~/.vscode/skills/sast_engine.py \
+  --repo https://github.com/organization/project.git \
+  --ref main \
+  --format markdown \
+  --debug
+```
+
+The remote source is not kept as a checkout after the scan. The generated reports remain in the current folder. A Git client is required for `--repo` scans.
+
 ---
 
 ## Generated Artifacts
@@ -92,6 +130,7 @@ Once execution completes, the following files will be created in your project ro
 | `sast_report.<ext>` | Primary requested report (`.md`, `.sarif`, `.json`, or `.html`). | CI/CD Pipelines, GitHub Security Tab, IDE Inline Annotations. |
 | `sast_security_report.pdf` | **Mandatory PDF Report** containing formatted vulnerability tables, vulnerable code snippets, fix diffs, and external references. | Security Lead, C-Level Management, Compliance Auditors. |
 | `sast_checkpoint.json` | Execution state tracker managing analyzed code chunks. | System / Internal Skill Engine. |
+| `sast_report.json` | Validated intermediate/debug report; deleted after successful runs unless `--debug` is used. | Debugging and verification. |
 
 ---
 
