@@ -167,7 +167,7 @@ The findings file must use this structure:
 
 After the agent creates `~/.vscode/skills/agent_findings.json`, run
 the renderer from the directory where reports should be written. A relative
-with the canonical skill-folder findings path:
+findings path is not required; use the canonical skill-folder findings path:
 
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py \
@@ -186,67 +186,28 @@ When `--findings-input` is supplied, the file is required. If it is missing,
 the command stops with an actionable error instead of generating a
 deterministic report labeled with the requested LLM model.
 
-#### GitHub Copilot Free setup
+#### Installed LLM model
 
-The official VS Code extension is `github.copilot-chat`. A GitHub Copilot
-Free plan can be used only after signing in with an eligible GitHub account;
-the renderer cannot inspect your private account or entitlement.
-
-Install **GitHub Copilot Chat** (`github.copilot-chat`) from the VS Code
-Extensions view in the same window where the repository is open. For WSL,
-first run **Remote WSL: Reopen Folder in WSL**. For another remote target,
-reconnect to that target before opening Extensions.
-
-The CLI alternative works only when the VS Code server is connected:
+List only the runtime model names detected in the installed LLM extensions:
 
 ```Bash
-code --install-extension github.copilot-chat
+python3 ~/.vscode/skills/sast_engine.py --list-models
 ```
 
-If it reports `Unable to connect to VS Code server` or a missing
-`vscode-ipc-*.sock` file, do not retry the command from the stale terminal.
-Reconnect or reopen the VS Code remote window, then use the Extensions view.
+Current output:
 
-After installation, sign in through the Accounts menu and select the Copilot
-model in the Copilot Chat model picker.
-
-Verify the extension version in the same VS Code environment:
-
-```Bash
-code --list-extensions --show-versions | grep github.copilot
+```text
+gemini-1.0-pro
 ```
 
-To verify all extensions installed in the connected WSL environment, run:
+Use that model name with the scanner switch:
 
 ```Bash
-code --list-extensions --show-versions
-```
-
-On the current machine this reports `galacticgit.gemini-chat@0.0.1` and no
-`github.copilot-chat` entry. Therefore Gemini is the currently installed LLM
-integration; Copilot is not currently available in this WSL extension set.
-Use `python3 ~/.vscode/skills/sast_engine.py --list-models` for the same
-LLM-only summary.
-
-If `code --install-extension github.copilot-chat` says that Copilot version
-`0.66.0` is already installed but `code --list-extensions --show-versions`
-does not show it, the install message and active WSL inventory are out of
-sync. Reconnect the WSL window, run the list command again, and use the active
-inventory as the source of truth. The skill checks both the extension metadata
-and the connected `code --list-extensions --show-versions` output.
-
-Verify Copilot Free eligibility by opening the GitHub Copilot settings or
-plans page while signed in to GitHub. The exact model availability and usage
-limits depend on the account and current GitHub plan; pass the selected model
-name to `--scanner-model` after the agent creates:
-`~/.vscode/skills/agent_findings.json`.
-
-```Bash
-# Example: the active Gemini model is Gemini 2.5 Pro
+# Example: the installed Gemini runtime model is gemini-1.0-pro
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \
   --findings-input ~/.vscode/skills/agent_findings.json \
-  --scanner-model "Gemini 2.5 Pro" \
+  --scanner-model "gemini-1.0-pro" \
   --format html
 ```
 

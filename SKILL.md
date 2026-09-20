@@ -19,22 +19,12 @@ names.
 For the connected WSL environment, confirm the underlying extension inventory with:
 `code --list-extensions --show-versions`
 Only extensions present in that output are currently installed for the remote
-environment; do not report Copilot as available unless `github.copilot-chat`
-appears there.
-If an install command reports Copilot as already installed but the inventory
-does not list it, treat the active inventory as authoritative and reconnect
-the WSL window before scanning.
+environment.
 The active Copilot, Gemini, or Claude model and model version must be selected in its extension or CLI. Pass its exact displayed name to `--scanner-model` when rendering agent findings; the standalone renderer cannot discover or select runtime model versions.
 
-For GitHub Copilot, use the official VS Code extension `github.copilot-chat`,
-sign in with GitHub, and verify Copilot Free eligibility in the GitHub account
-plans/settings UI. The skill must not claim that a user has Copilot Free access
-because account entitlements are private and unavailable to the Python renderer.
-In WSL or a remote window, install the extension from the connected VS Code
-Extensions view. If `code --install-extension` reports a missing
-`vscode-ipc-*.sock` or cannot connect to the VS Code server, reconnect or
-reopen the folder with the appropriate Remote WSL/remote command first. This
-is a VS Code server connection issue, not a scanner failure.
+Use `python3 ~/.vscode/skills/sast_engine.py --list-models` to display only
+currently detected runtime model names. Pass the resulting model name to
+`--scanner-model` when rendering agent findings.
 
 When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `~/.vscode/skills/agent_findings.json` using the documented JSON schema and invoke the renderer with `--findings-input ~/.vscode/skills/agent_findings.json` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
 When `--findings-input` is supplied but the file is missing, the engine must
