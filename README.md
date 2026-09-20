@@ -52,10 +52,19 @@ Run the appropriate command in your terminal depending on your OS.
 Clone Directly into `.vscode/skills`
 If the `.vscode/skills` folder does not exist in your current target project, you can create it manually and clone this skill directly into it.
    * Windows 11 (PowerShell or Windows Terminal):
-     Navigate to your target project's root folder and run:
+     Clone into a temporary folder, then copy the repository contents directly
+     into your Windows profile skill folder. This avoids creating a nested
+     `.vscode` directory under `.vscode\skills`:
 	   ```PowerShell
-     mkdir -p .vscode/skills
- 	   git clone https://github.com/eyalestrin/agentic-sast-scanner.git .vscode/skills
+     $skillPath = Join-Path $HOME ".vscode\skills"
+     $tempPath = Join-Path $env:TEMP "agentic-sast-scanner"
+     if (Test-Path $tempPath) { Remove-Item $tempPath -Recurse -Force }
+     git clone https://github.com/eyalestrin/agentic-sast-scanner.git $tempPath
+     New-Item -ItemType Directory -Force -Path $skillPath | Out-Null
+     Get-ChildItem -LiteralPath $tempPath -Force |
+       Where-Object { $_.Name -ne ".git" } |
+       Copy-Item -Destination $skillPath -Recurse -Force
+     Remove-Item $tempPath -Recurse -Force
      ```
    * Linux / macOS:  
 	   Navigate to your target project's root folder and run:  
