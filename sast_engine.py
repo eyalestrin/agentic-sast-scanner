@@ -64,7 +64,7 @@ STATIC_HEURISTIC_RULES = [
         "cwe_id": "CWE-78",
         "owasp_category": "A03:2021-Injection",
         "severity": "CRITICAL",
-        "pattern": r"(Runtime\.getRuntime\(\)\.exec|ProcessBuilder|os\.system|subprocess\.Popen|exec\s*\(.*sh)",
+        "pattern": r"(Runtime\.getRuntime\(\)\.exec|ProcessBuilder|os\.system|subprocess\.(Popen|run|call)|child_process\.(exec|execFile|spawn)|shell\s*=\s*True)",
         "remediation": "Avoid invoking system shells directly. Parameterize arguments using structured array APIs.",
         "references": [
             "https://cwe.mitre.org/data/definitions/78.html",
@@ -220,11 +220,13 @@ def detect_languages(target_dir):
     return sorted(languages)
 
 
-def build_report_metadata(target_dir, scanner_model=None):
+def build_report_metadata(target_dir, scanner_model=None, requested_model=None):
     """Builds metadata that must appear in every report format."""
     languages = detect_languages(target_dir)
     return {
         "scanner_model": scanner_model or SCANNER_MODEL,
+        "requested_model": requested_model,
+        "analysis_engine": "agent findings renderer" if scanner_model else "deterministic heuristic SAST rules",
         "detected_languages": languages or ["None detected"],
     }
 
@@ -680,7 +682,10 @@ def generate_pdf_report(findings, metadata, output_pdf_path="sast_security_repor
     )
 
     story.append(Paragraph("Static Application Security Testing (SAST) Audit Report", title_style))
+    if metadata.get('requested_model'):
+        story.append(Paragraph(f"<b>Requested Model:</b> {escape(metadata['requested_model'])}", styles['Normal']))
     story.append(Paragraph(f"<b>Scanner Model:</b> {escape(metadata['scanner_model'])}", styles['Normal']))
+    story.append(Paragraph(f"<b>Analysis Engine:</b> {escape(metadata['analysis_engine'])}", styles['Normal']))
     story.append(Paragraph(f"<b>Detected Languages:</b> {escape(', '.join(metadata['detected_languages']))}", styles['Normal']))
     story.append(Spacer(1, 8))
     story.append(Paragraph("Executive Summary", styles['Heading2']))
@@ -832,7 +837,9 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
 </head>
 <body>
     <h1>Static Application Security Testing (SAST) Audit Report</h1>
+    {f"<p><b>Requested Model:</b> {escape(metadata['requested_model'])}</p>" if metadata.get('requested_model') else ""}
     <p><b>Scanner Model:</b> {escape(metadata['scanner_model'])}</p>
+    <p><b>Analysis Engine:</b> {escape(metadata['analysis_engine'])}</p>
     <p><b>Detected Languages:</b> {escape(', '.join(metadata['detected_languages']))}</p>
     
     <h2>Executive Summary</h2>
@@ -968,7 +975,7 @@ def main():
             if args.scanner_model:
                 print("[!] No agent findings supplied; ignoring --scanner-model and using deterministic analysis.")
             findings = load_or_scan_checkpoint(target_dir)
-        metadata = build_report_metadata(target_dir, findings_model)
+        metadata = build_report_metadata(target_dir, findings_model, args.scanner_model)
         print(f"[+] Active vulnerability findings loaded: {len(findings)}")
         print(f"[+] Scanner model: {metadata['scanner_model']}")
         print(f"[+] Detected languages: {', '.join(metadata['detected_languages'])}")
@@ -988,7 +995,10 @@ def main():
             counts = get_severity_counts(findings)
             with open(out_name, 'w', encoding='utf-8') as f:
                 f.write("# SAST Audit Summary\n\n")
+                if metadata.get("requested_model"):
+                    f.write(f"- Requested Model: **{metadata['requested_model']}**\n")
                 f.write(f"- Scanner Model: **{metadata['scanner_model']}**\n")
+                f.write(f"- Analysis Engine: **{metadata['analysis_engine']}**\n")
                 f.write("- Detected Languages:\n")
                 for language in metadata["detected_languages"]:
                     f.write(f"  - {language}\n")

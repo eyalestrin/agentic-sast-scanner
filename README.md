@@ -212,6 +212,15 @@ There are two valid modes:
   only `--findings-input` to receive a warning and use deterministic analysis.
 
 The Python renderer cannot turn deterministic findings into Gemini findings.
+Selecting `--scanner-model gemini-1.0-pro` alone does not run Gemini. Reports
+show the requested model separately from the actual analysis engine. In the
+absence of agent findings, the engine remains deterministic and may report no
+findings after filtering false positives from bundled libraries.
+
+For deterministic findings, the displayed fix is a secure code template and
+must be adapted to the surrounding function and framework. Exact copy/paste
+fixes can only be preserved from `recommended_replacement` values supplied by
+the LLM agent in `agent_findings.json`.
 
 #### Installed LLM model
 

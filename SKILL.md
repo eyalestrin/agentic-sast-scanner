@@ -31,6 +31,11 @@ When `--findings-input` is supplied but the file is missing, the engine must
 stop; it must not label deterministic fallback findings as LLM findings.
 If no Gemini terminal CLI is installed, the findings file must be created by
 the active Gemini VS Code extension before invoking the renderer.
+Selecting a model name without agent findings must not claim that model ran;
+reports must show the requested model and the actual deterministic analysis
+engine separately. Deterministic fix text is a context-dependent secure code
+template, while exact copy/paste fixes require an agent-provided
+`recommended_replacement`.
 `agent_findings.json` is a per-scan artifact, not a permanent required skill
 file. Deterministic scans do not need it, and agents must regenerate it when
 the repository or selected model changes. Do not create an empty placeholder.
