@@ -30,6 +30,7 @@ SUPPORTED_EXTENSIONS = {
 
 EXCLUDED_DIRS = {'.git', 'node_modules', 'venv', '.venv', 'target', 'bin', 'obj', '__pycache__'}
 CHECKPOINT_FILE = "sast_checkpoint.json"
+SCANNER_MODEL = "No LLM model used; deterministic heuristic SAST rules"
 
 SEVERITY_ORDER = {
     "CRITICAL": 0,
@@ -163,6 +164,38 @@ def get_recommended_fix(finding):
     )
 
 
+def detect_languages(target_dir):
+    """Returns the programming languages detected in supported source files."""
+    languages = set()
+    for root, dirs, files in os.walk(target_dir):
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+        for file in files:
+            language = SUPPORTED_EXTENSIONS.get(Path(file).suffix.lower())
+            if language:
+                languages.add(language)
+    return sorted(languages)
+
+
+def build_report_metadata(target_dir):
+    """Builds metadata that must appear in every report format."""
+    languages = detect_languages(target_dir)
+    return {
+        "scanner_model": SCANNER_MODEL,
+        "detected_languages": languages or ["None detected"],
+    }
+
+
+def finding_report_data(finding):
+    """Returns the exact source location, code, and replacement guidance."""
+    return {
+        "file_path": finding.get("file_path"),
+        "start_line": finding.get("start_line"),
+        "end_line": finding.get("end_line"),
+        "vulnerable_code": finding.get("vulnerable_code"),
+        "recommended_replacement": get_recommended_fix(finding),
+    }
+
+
 def validate_findings(findings):
     """Validates the structure and required fields of the generated findings list."""
     if not isinstance(findings, list):
@@ -195,7 +228,7 @@ def validate_findings(findings):
     return True
 
 
-def validate_report_output(report_type, output_path, findings):
+def validate_report_output(report_type, output_path, findings, metadata):
     """Ensures a generated report file exists, is non-empty, and matches the expected findings summary."""
     validate_findings(findings)
 
@@ -207,43 +240,62 @@ def validate_report_output(report_type, output_path, findings):
         raise ValueError(f"{report_type.upper()} report is empty: {output_path}")
 
     counts = get_severity_counts(findings)
+    expected_model = metadata["scanner_model"]
+    expected_languages = metadata["detected_languages"]
 
     if report_type == "json":
         with open(output_path, 'r', encoding='utf-8') as handle:
             data = json.load(handle)
-        if not isinstance(data, list):
-            raise ValueError("JSON report must contain a list of findings.")
-        if len(data) != len(findings):
-            raise ValueError(f"JSON report mismatch: expected {len(findings)} findings, found {len(data)}")
+        if not isinstance(data, dict) or "metadata" not in data or "findings" not in data:
+            raise ValueError("JSON report must contain metadata and findings sections.")
+        if data["metadata"].get("scanner_model") != expected_model or data["metadata"].get("detected_languages") != expected_languages:
+            raise ValueError("JSON report metadata does not match the scan.")
+        if len(data["findings"]) != len(findings):
+            raise ValueError(f"JSON report mismatch: expected {len(findings)} findings, found {len(data['findings'])}")
+        if any("vulnerable_code" not in item or "recommended_replacement" not in item for item in data["findings"]):
+            raise ValueError("JSON report is missing exact code or replacement details.")
 
     elif report_type == "sarif":
         with open(output_path, 'r', encoding='utf-8') as handle:
             data = json.load(handle)
         if "runs" not in data or not data["runs"]:
             raise ValueError("SARIF report is missing the runs section.")
+        properties = data["runs"][0].get("properties", {})
+        if properties.get("scanner_model") != expected_model or properties.get("detected_languages") != expected_languages:
+            raise ValueError("SARIF report metadata does not match the scan.")
         result_count = len(data["runs"][0].get("results", []))
         if result_count != len(findings):
             raise ValueError(f"SARIF report mismatch: expected {len(findings)} results, found {result_count}")
+        if any("vulnerable_code" not in result.get("properties", {}) or "recommended_replacement" not in result.get("properties", {}) for result in data["runs"][0]["results"]):
+            raise ValueError("SARIF report is missing exact code or replacement details.")
 
     elif report_type == "html":
         content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
-        required_tokens = ["Static Application Security Testing (SAST) Audit Report", "Executive Summary", "Detailed Security Findings", f"Total Vulnerabilities Identified:</b> {len(findings)}"]
+        required_tokens = ["Static Application Security Testing (SAST) Audit Report", "Executive Summary", "Detailed Security Findings", f"Total Vulnerabilities Identified:</b> {len(findings)}", escape(expected_model), "Detected Languages", "Current Code (replace):", "Recommended Replacement:"]
+        required_tokens.extend(escape(language) for language in expected_languages)
         for token in required_tokens:
             if token not in content:
                 raise ValueError(f"HTML report is missing required token: {token}")
         rendered_rows = content.count('<tr class="finding-row">')
         if rendered_rows != len(findings):
             raise ValueError(f"HTML report mismatch: expected {len(findings)} finding rows, found {rendered_rows}")
+        if content.count("Current Code (replace):") != len(findings) or content.count("Recommended Replacement:") != len(findings):
+            raise ValueError("HTML report is missing exact code or replacement details.")
         for severity, total in counts.items():
             if f'{severity}</span></td><td><b>{total}</b>' not in content and f'{severity}</b></font>' not in content:
                 raise ValueError(f"HTML summary count mismatch for {severity}: expected {total}")
 
     elif report_type == "markdown":
         content = Path(output_path).read_text(encoding='utf-8', errors='ignore')
-        if "# SAST Audit Summary" not in content:
+        required_tokens = ["# SAST Audit Summary", f"Scanner Model: **{expected_model}**", "Detected Languages:"]
+        required_tokens.extend(f"- {language}" for language in expected_languages)
+        required_tokens.extend(["Current Code (replace):", "Recommended Replacement:"])
+        if any(token not in content for token in required_tokens):
             raise ValueError("Markdown report is missing the summary header.")
-        if f"Total Findings: **{len(findings)}**" not in content:
+        if f"Total Vulnerabilities Identified: **{len(findings)}**" not in content:
             raise ValueError(f"Markdown report mismatch: expected {len(findings)} findings")
+        if content.count("Current Code (replace):") != len(findings) or content.count("Recommended Replacement:") != len(findings):
+            raise ValueError("Markdown report is missing exact code or replacement details.")
 
     elif report_type == "pdf":
         with open(output_path, 'rb') as handle:
@@ -330,7 +382,7 @@ def load_or_scan_checkpoint(target_dir):
 
     return sorted_findings
 
-def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
+def generate_pdf_report(findings, metadata, output_pdf_path="sast_security_report.pdf"):
     """Generates mandatory PDF security report with Executive Summary using ReportLab."""
     doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
     styles = getSampleStyleSheet()
@@ -343,8 +395,14 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
         textColor=colors.HexColor('#1e293b'),
         spaceAfter=12
     )
+    wrapped_code_style = ParagraphStyle(
+        'WrappedCode', parent=styles['Code'], fontSize=7, leading=8, wordWrap='CJK'
+    )
 
     story.append(Paragraph("Static Application Security Testing (SAST) Audit Report", title_style))
+    story.append(Paragraph(f"<b>Scanner Model:</b> {escape(metadata['scanner_model'])}", styles['Normal']))
+    story.append(Paragraph(f"<b>Detected Languages:</b> {escape(', '.join(metadata['detected_languages']))}", styles['Normal']))
+    story.append(Spacer(1, 8))
     story.append(Paragraph("Executive Summary", styles['Heading2']))
     story.append(Paragraph(f"<b>Total Vulnerabilities Identified:</b> {len(findings)}", styles['Normal']))
     story.append(Spacer(1, 8))
@@ -390,7 +448,7 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
 
             details = [
                 [Paragraph("<b>CWE / Taxonomy:</b>", styles['Normal']), Paragraph(f"{item.get('cwe_id', 'N/A')} ({item.get('owasp_category', 'N/A')})", styles['Normal'])],
-                [Paragraph("<b>File Location:</b>", styles['Normal']), Paragraph(f"{item.get('file_path')} (Line {item.get('start_line')})", styles['Normal'])],
+                [Paragraph("<b>File Location:</b>", styles['Normal']), Paragraph(f"{item.get('file_path')} (Lines {item.get('start_line')}-{item.get('end_line')})", styles['Normal'])],
             ]
 
             t = Table(details, colWidths=[130, 370])
@@ -404,7 +462,11 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
             story.append(Spacer(1, 8))
 
             story.append(Paragraph("<b>Vulnerable Code Snippet:</b>", styles['Normal']))
-            story.append(Preformatted(item.get('vulnerable_code', 'N/A'), styles['Code']))
+            story.append(Paragraph(escape(str(item.get('vulnerable_code', 'N/A'))), wrapped_code_style))
+            story.append(Spacer(1, 6))
+
+            story.append(Paragraph("<b>Recommended Replacement:</b>", styles['Normal']))
+            story.append(Paragraph(escape(get_recommended_fix(item)), wrapped_code_style))
             story.append(Spacer(1, 6))
 
             story.append(Paragraph(f"<b>Remediation Strategy:</b> {item.get('remediation', 'N/A')}", styles['Normal']))
@@ -416,11 +478,11 @@ def generate_pdf_report(findings, output_pdf_path="sast_security_report.pdf"):
             story.append(Spacer(1, 14))
 
     doc.build(story)
-    validate_report_output("pdf", output_pdf_path, findings)
+    validate_report_output("pdf", output_pdf_path, findings, metadata)
     print(f"[+] Mandatory PDF report generated: {output_pdf_path}")
     return output_pdf_path
 
-def generate_html_report(findings, output_html_path="sast_report.html"):
+def generate_html_report(findings, metadata, output_html_path="sast_report.html"):
     """Generates HTML report with Executive Summary table."""
     counts = get_severity_counts(findings)
     rows = ""
@@ -448,7 +510,7 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
         <tr class="finding-row">
             <td><span class="badge {badge_class}">{sev}</span></td>
             <td><b>{escape(str(item.get('title', '')))}</b><br/><small>{escape(str(item.get('cwe_id', '')))} | {escape(str(item.get('owasp_category', '')))}</small></td>
-            <td><code>{escape(str(item.get('file_path', '')))}:{escape(str(item.get('start_line', '')))}</code></td>
+            <td><code>{escape(str(item.get('file_path', '')))}:{escape(str(item.get('start_line', '')))}-{escape(str(item.get('end_line', '')))}</code></td>
             <td>
                 <b>Current Code (replace):</b>
                 <pre><code>{current_code}</code></pre>
@@ -490,6 +552,8 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
 </head>
 <body>
     <h1>Static Application Security Testing (SAST) Audit Report</h1>
+    <p><b>Scanner Model:</b> {escape(metadata['scanner_model'])}</p>
+    <p><b>Detected Languages:</b> {escape(', '.join(metadata['detected_languages']))}</p>
     
     <h2>Executive Summary</h2>
     <p><b>Total Vulnerabilities Identified:</b> {len(findings)}</p>
@@ -528,11 +592,11 @@ def generate_html_report(findings, output_html_path="sast_report.html"):
 
     with open(output_html_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
-    validate_report_output("html", output_html_path, findings)
+    validate_report_output("html", output_html_path, findings, metadata)
     print(f"[+] HTML report generated: {output_html_path}")
     return output_html_path
 
-def generate_sarif_report(findings, output_sarif_path="sast_report.sarif"):
+def generate_sarif_report(findings, metadata, output_sarif_path="sast_report.sarif"):
     """Generates SARIF format report for IDE and CI/CD ingestion."""
     sarif_rules = []
     sarif_results = []
@@ -554,13 +618,16 @@ def generate_sarif_report(findings, output_sarif_path="sast_report.sarif"):
                     "artifactLocation": {"uri": item.get('file_path')},
                     "region": {"startLine": item.get('start_line', 1)}
                 }
-            }]
+            }],
+            "properties": finding_report_data(item)
         })
 
     sarif_data = {
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
         "version": "2.1.0",
+        "properties": metadata,
         "runs": [{
+            "properties": metadata,
             "tool": {
                 "driver": {
                     "name": "Agentic SAST Scanner",
@@ -574,7 +641,7 @@ def generate_sarif_report(findings, output_sarif_path="sast_report.sarif"):
 
     with open(output_sarif_path, 'w', encoding='utf-8') as f:
         json.dump(sarif_data, f, indent=2)
-    validate_report_output("sarif", output_sarif_path, findings)
+    validate_report_output("sarif", output_sarif_path, findings, metadata)
     print(f"[+] SARIF report generated: {output_sarif_path}")
     return output_sarif_path
 
@@ -588,34 +655,51 @@ def main():
     print(f"[+] Initializing SAST Engine on target folder: {target_dir}")
 
     findings = load_or_scan_checkpoint(target_dir)
+    metadata = build_report_metadata(target_dir)
     print(f"[+] Active vulnerability findings loaded: {len(findings)}")
+    print(f"[+] Scanner model: {metadata['scanner_model']}")
+    print(f"[+] Detected languages: {', '.join(metadata['detected_languages'])}")
 
     if args.format == "html":
-        generate_html_report(findings, "sast_report.html")
+        generate_html_report(findings, metadata, "sast_report.html")
     elif args.format == "sarif":
-        generate_sarif_report(findings, "sast_report.sarif")
+        generate_sarif_report(findings, metadata, "sast_report.sarif")
     elif args.format == "json":
+        report_findings = []
+        for item in findings:
+            report_item = dict(item)
+            report_item.update(finding_report_data(item))
+            report_findings.append(report_item)
         with open("sast_report.json", 'w', encoding='utf-8') as f:
-            json.dump(findings, f, indent=2)
-        validate_report_output("json", "sast_report.json", findings)
+            json.dump({"metadata": metadata, "findings": report_findings}, f, indent=2)
+        validate_report_output("json", "sast_report.json", findings, metadata)
         print("[+] Primary JSON report generated: sast_report.json")
     else:
         out_name = f"sast_report.{'md' if args.format == 'markdown' else args.format}"
         counts = get_severity_counts(findings)
         with open(out_name, 'w', encoding='utf-8') as f:
             f.write("# SAST Audit Summary\n\n")
+            f.write(f"- Scanner Model: **{metadata['scanner_model']}**\n")
+            f.write("- Detected Languages:\n")
+            for language in metadata["detected_languages"]:
+                f.write(f"  - {language}\n")
+            f.write("\n")
             f.write("## Executive Summary\n")
-            f.write(f"- Total Findings: **{len(findings)}**\n")
+            f.write(f"- Total Vulnerabilities Identified: **{len(findings)}**\n")
             f.write(f"- Critical: {counts['CRITICAL']} | High: {counts['HIGH']} | Medium: {counts['MEDIUM']} | Low: {counts['LOW']}\n\n")
             f.write("## Detailed Findings\n")
             for item in findings:
                 f.write(f"### {item.get('title')} ({item.get('severity')})\n")
-                f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}`\n")
+                f.write(f"- Location: `{item.get('file_path')}:{item.get('start_line')}-{item.get('end_line')}`\n")
                 f.write(f"- CWE: {item.get('cwe_id')}\n\n")
-        validate_report_output("markdown", out_name, findings)
+                f.write("**Current Code (replace):**\n\n")
+                f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(str(item.get('vulnerable_code', '')))}</pre>\n\n")
+                f.write("**Recommended Replacement:**\n\n")
+                f.write(f"<pre style=\"white-space: pre-wrap; overflow-wrap: anywhere;\">{escape(get_recommended_fix(item))}</pre>\n\n")
+        validate_report_output("markdown", out_name, findings, metadata)
         print(f"[+] Primary report generated: {out_name}")
 
-    generate_pdf_report(findings, "sast_security_report.pdf")
+    generate_pdf_report(findings, metadata, "sast_security_report.pdf")
 
 if __name__ == "__main__":
     main()

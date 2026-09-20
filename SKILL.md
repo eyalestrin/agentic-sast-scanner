@@ -6,6 +6,10 @@
    - Recognize context capacity constraints and adapt token density accordingly.
 2. Maintain strict output structure regardless of target runtime.
 
+The generated reports must state the exact scanner model. This implementation uses no LLM during scanning and must report that fact as:
+`No LLM model used; deterministic heuristic SAST rules`
+Reports must also state every programming language detected from the scanned source files.
+
 ## STAGE 2: EXECUTION & CHUNKING AGENTIC PROTOCOL
 - Walk the project folder recursively.
 - Filter out binary assets, dependency directories (`node_modules`, `vendor`, `.git`, `venv`, `target`, `bin`), and lockfiles.
@@ -19,7 +23,8 @@ For each 400-line block, scan for security weaknesses mapped to official standar
 - **CWE / OWASP:** Exact CWE ID (e.g., CWE-89) and OWASP Top 10 category.
 - **Severity Score:** Severity rating (CRITICAL, HIGH, MEDIUM, LOW) along with CVSS v3.1 vector string.
 - **Location:** File path and exact physical line numbers.
-- **Remediation:** Secure code snippet replacement.
+- **Vulnerable Code:** The exact flagged source section and line range.
+- **Remediation:** A concrete recommended replacement or secure code change.
 - **References:** Official external URLs (OWASP Cheat Sheets, MITRE CWE, NIST).
 
 ## STAGE 4: OUTPUT ORCHESTRATION
@@ -28,3 +33,6 @@ For each 400-line block, scan for security weaknesses mapped to official standar
   `python3 ~/.vscode/skills/sast_engine.py --format <requested_format>`
   (or `python3 .vscode/skills/sast_engine.py` if cloned locally into the workspace).
 - **Mandatory Policy:** The engine MUST generate the requested format AND automatically compile a `sast_security_report.pdf` report in all instances.
+- Every output format (JSON, SARIF, Markdown, HTML, and PDF) MUST begin with the scanner model and detected programming languages.
+- Every output format MUST include the exact vulnerable code, file path, start/end lines, and recommended replacement for each finding.
+- Markdown, HTML, and PDF output MUST wrap long paths, URLs, code, and remediation text within the available window/page width.
