@@ -10,8 +10,12 @@ The generated reports must state the exact scanner model. This implementation us
 `No LLM model used; deterministic heuristic SAST rules`
 Reports must also state every programming language detected from the scanned source files.
 
-Detected external-agent integrations and locally installed extension versions can be listed with:
+Detected external-agent integrations can be checked with:
 `python3 ~/.vscode/skills/sast_engine.py --list-models`
+The command prints only bare runtime model names. If an installed extension declares its model
+in local source, the skill reports that model; otherwise it says that the
+runtime model is unavailable. Extension versions must not be used as model
+names.
 For the connected WSL environment, confirm the underlying extension inventory with:
 `code --list-extensions --show-versions`
 Only extensions present in that output are currently installed for the remote
@@ -33,6 +37,11 @@ reopen the folder with the appropriate Remote WSL/remote command first. This
 is a VS Code server connection issue, not a scanner failure.
 
 When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `~/.vscode/skills/agent_findings.json` using the documented JSON schema and invoke the renderer with `--findings-input ~/.vscode/skills/agent_findings.json` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
+When `--findings-input` is supplied but the file is missing, the engine must
+stop; it must not label deterministic fallback findings as LLM findings.
+`agent_findings.json` is a per-scan artifact, not a permanent required skill
+file. Deterministic scans do not need it, and agents must regenerate it when
+the repository or selected model changes. Do not create an empty placeholder.
 
 ## STAGE 2: EXECUTION & CHUNKING AGENTIC PROTOCOL
 - Walk the project folder recursively.

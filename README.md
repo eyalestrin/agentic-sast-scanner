@@ -102,15 +102,32 @@ VS Code agent to inspect the repository and create the file. The Python
 engine cannot call or switch the active VS Code model directly. The
 `--scanner-model` option records which model performed the agent scan.
 
-To see the currently supported agent integrations:
+`agent_findings.json` is not a permanent skill file and is not required for
+deterministic scans. It is a per-scan input produced by the selected agent.
+Do not create an empty placeholder: it would contain no agent findings and
+would not represent a real LLM scan. The file should be regenerated when the
+repository or selected model changes.
+
+To list only detected runtime LLM model names:
 
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py --list-models
 ```
 
-This shows only LLM integrations detected on the current machine and their
-installed extension versions. The active model and model version are selected
-at runtime in the corresponding extension or CLI.
+When a runtime model name is exposed, output has this format:
+
+```text
+gemini-1.0-pro
+```
+
+The installed Gemini extension currently declares this runtime model:
+
+```text
+gemini-1.0-pro
+```
+
+Do not use the extension version as the model name. Use the runtime model
+switch reported by the command.
 
 #### Agent instructions
 
@@ -164,6 +181,10 @@ Change `--scanner-model` to the exact model selected in the agent
 extension. Examples include `Gemini 2.5 Pro` and `Claude Sonnet 4`.
 The engine validates and formats the agent findings; it does not claim
 that deterministic rules used the external model.
+
+When `--findings-input` is supplied, the file is required. If it is missing,
+the command stops with an actionable error instead of generating a
+deterministic report labeled with the requested LLM model.
 
 #### GitHub Copilot Free setup
 

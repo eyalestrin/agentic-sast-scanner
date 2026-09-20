@@ -274,6 +274,7 @@ def discover_agent_extensions():
                     discovered[provider] = {
                         "extension_id": extension_id,
                         "extension_version": package.get("version", "unknown"),
+                        "runtime_model": discover_runtime_model(extension_dir),
                     }
 
     code_cli = shutil.which("code")
@@ -295,24 +296,41 @@ def discover_agent_extensions():
                         discovered[provider] = {
                             "extension_id": extension_id,
                             "extension_version": version,
+                            "runtime_model": discovered.get(provider, {}).get("runtime_model"),
                         }
         except (OSError, subprocess.TimeoutExpired):
             pass
     return discovered
 
 
+def discover_runtime_model(extension_dir):
+    """Reads an explicitly declared runtime model from an installed extension."""
+    model_pattern = re.compile(r"(?:MODEL_NAME|model)\s*[:=]\s*[\"']([^\"']+)[\"']")
+    for source_path in extension_dir.rglob("*"):
+        if source_path.suffix.lower() not in {".js", ".html", ".json"}:
+            continue
+        try:
+            source = source_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        match = model_pattern.search(source)
+        if match and "gemini" in match.group(1).lower():
+            return match.group(1)
+    return None
+
+
 def print_supported_models():
-    """Prints only LLM integrations detected on this machine."""
+    """Prints detected LLMs as copy-pasteable scanner-model switches."""
     installed = discover_agent_extensions()
-    print("Currently supported LLM integrations detected on this machine:")
     if not installed:
-        print("- None detected")
+        print("No supported LLM integrations detected.")
         return
-    for provider, (_, instruction) in SUPPORTED_LLM_INTEGRATIONS:
+    for provider, (_, _) in SUPPORTED_LLM_INTEGRATIONS:
         details = installed.get(provider)
-        if details:
-            print(f"- {provider}: {details['extension_id']} version {details['extension_version']}")
-            print(f"  {instruction}")
+        if details and details.get("runtime_model"):
+            print(details["runtime_model"])
+    if installed and not any(details.get("runtime_model") for details in installed.values()):
+        print("No runtime LLM model name is exposed by the installed extensions.")
 
 
 def resolve_findings_path(findings_path, target_dir):
@@ -543,6 +561,12 @@ def analyze_line_heuristics(line, line_num, file_path):
     """Evaluates a single line of code against built-in static patterns."""
     findings = []
     for rule in STATIC_HEURISTIC_RULES:
+        if rule["cwe_id"] == "CWE-89" and not re.search(
+            r"\b(query|sql|execute|statement|jdbc|sequelize|knex|database|connection|cursor)\b|\b(db\.)",
+            line,
+            re.IGNORECASE,
+        ):
+            continue
         if re.search(rule["pattern"], line, re.IGNORECASE):
             findings.append({
                 "title": rule["title"],
@@ -627,7 +651,7 @@ def generate_pdf_report(findings, metadata, output_pdf_path="sast_security_repor
         spaceAfter=12
     )
     wrapped_code_style = ParagraphStyle(
-        'WrappedCode', parent=styles['Code'], fontSize=7, leading=8, wordWrap='CJK'
+        'WrappedCode', parent=styles['Code'], fontSize=10, leading=12, wordWrap='CJK'
     )
 
     story.append(Paragraph("Static Application Security Testing (SAST) Audit Report", title_style))
@@ -763,7 +787,7 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
         table {{ width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 12px; margin-bottom: 24px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
         th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }}
         th {{ background: #f1f5f9; }}
-        pre {{ background: #0f172a; color: #f8fafc; padding: 8px; border-radius: 4px; max-width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-size: 12px; }}
+        pre {{ background: #0f172a; color: #f8fafc; padding: 8px; border-radius: 4px; max-width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-size: 15px; line-height: 1.35; }}
         code {{ overflow-wrap: anywhere; word-break: break-word; }}
         .badge {{ padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }}
         .critical {{ background: #dc2626; }}
@@ -776,7 +800,7 @@ def generate_html_report(findings, metadata, output_html_path="sast_report.html"
             h1 {{ font-size: 1.45rem; }}
             h2 {{ font-size: 1.15rem; }}
             th, td {{ padding: 7px; font-size: 0.85rem; }}
-            pre {{ font-size: 10px; padding: 5px; }}
+            pre {{ font-size: 13px; padding: 5px; }}
             .summary-table {{ width: 100%; min-width: 0; }}
         }}
     </style>
@@ -908,10 +932,7 @@ def main():
             try:
                 findings = load_agent_findings(findings_path)
             except FileNotFoundError as error:
-                print(f"[!] {error}")
-                print("[!] Running deterministic fallback; this report will not claim that Gemini scanned the code.")
-                findings = load_or_scan_checkpoint(target_dir)
-                findings_model = None
+                raise SystemExit(f"[-] Error: {error}") from None
             else:
                 print(f"[+] Loaded agent findings from: {findings_path}")
         else:
