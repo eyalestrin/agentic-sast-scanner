@@ -29,6 +29,8 @@ currently detected runtime model names. Pass the resulting model name to
 When an external agent such as Copilot, Gemini, or Claude performs the semantic scan, it must create `~/.vscode/skills/agent_findings.json` using the documented JSON schema and invoke the renderer with `--findings-input ~/.vscode/skills/agent_findings.json` and the exact `--scanner-model` value. The renderer must preserve the agent's `vulnerable_code` and `recommended_replacement` values. The Python engine cannot select or invoke the active VS Code model; `--scanner-model` is metadata identifying the model that the agent used.
 When `--findings-input` is supplied but the file is missing, the engine must
 stop; it must not label deterministic fallback findings as LLM findings.
+If no Gemini terminal CLI is installed, the findings file must be created by
+the active Gemini VS Code extension before invoking the renderer.
 `agent_findings.json` is a per-scan artifact, not a permanent required skill
 file. Deterministic scans do not need it, and agents must regenerate it when
 the repository or selected model changes. Do not create an empty placeholder.

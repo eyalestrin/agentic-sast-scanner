@@ -178,6 +178,10 @@ The renderer does not invoke Gemini. If this file is missing, ask Gemini to
 scan the repository and create it using the schema above before running the
 following command.
 
+The current environment has the Gemini VS Code extension but no `gemini`
+terminal CLI. Therefore Gemini must create the findings file through the VS
+Code extension; the Python renderer only validates and formats that file.
+
 ```Bash
 python3 ~/.vscode/skills/sast_engine.py \
   --dir . \

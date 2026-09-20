@@ -356,6 +356,7 @@ def validate_agent_findings_path(findings_path, target_dir):
             f"[-] Error: Agent findings file not found in the skill folder: {resolved_path}. "
             "Ask Gemini to create it before running the renderer. "
             "The renderer cannot invoke Gemini or create genuine LLM findings itself. "
+            "No Gemini CLI is installed in this environment; use the installed Gemini VS Code extension. "
             "Do not use --dir . from ~/.vscode/skills; that scans the skill folder. "
             "Example: python3 ~/.vscode/skills/sast_engine.py --dir ~/VulnerableApp "
             "--findings-input ~/.vscode/skills/agent_findings.json "
